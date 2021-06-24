@@ -9,7 +9,7 @@ use std::fs::File;
 #[cfg(feature = "ogg")]
 use std::io::Cursor;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -101,47 +101,53 @@ pub fn load_sound_effects(overrides: &[SoundEffect], num_channels: usize) -> Has
         .map(|event| {
             let file = overrides.get(&event);
             // Try to open the file if overriden, otherwise use the default sound effect.
-            let (data, kind) = file
+            let samples = file
                 .and_then(|file| {
-                    // Try to get the file kind from the extension.
-                    let kind = file
-                        .split('.')
-                        .last()
-                        .and_then(|ext| AudioFileKind::try_from(ext).ok())?;
-                    Some((get_sfx(file), kind))
+                    let path = PathBuf::from(file);
+                    open_and_unpack_audio(&path, 2).ok()
                 })
-                .unwrap_or_else(|| (get_default_sfx(), AudioFileKind::Wav));
-            // Unpack the samples.
-            let (samples, spec) = unpack_audio(data, kind);
-            // If the audio is mono (single channel), pad every sample with
-            // itself, since we later assume that audio is stored interleaved as
-            // LRLRLR (or RLRLRL). Without this, mono audio would be played in
-            // double speed.
-            let iter: Box<dyn Iterator<Item = f32>> = match spec.channels {
-                1 => Box::new(samples.into_iter().flat_map(|e| [e, e])),
-                2 => Box::new(samples.into_iter()),
-                _ => unimplemented!("Only mono and stereo sound is supported. See #80."),
-            };
-            // Create a dasp signal containing stereo sound.
-            let mut signal = signal::from_interleaved_samples_iter::<_, [f32; 2]>(iter);
-            // Create a linear interpolator, in case we need to convert the sample rate.
-            let interp = Linear::new(Signal::next(&mut signal), Signal::next(&mut signal));
-            // Create our resulting samples.
-            let samples = signal
-                .from_hz_to_hz(interp, spec.sample_rate as f64, SAMPLE_RATE as f64)
-                .until_exhausted()
-                // If the source audio is stereo and is being played as mono, discard the first channel.
-                .flat_map(|e| {
-                    if num_channels == 1 {
-                        vec![e[0]]
-                    } else {
-                        e.to_vec()
-                    }
-                })
-                .collect::<Vec<f32>>();
+                .unwrap_or_else(|| unpack_audio(get_default_sfx(), AudioFileKind::Wav).0);
             (event, samples)
         })
         .collect()
+}
+
+fn open_and_unpack_audio<P: AsRef<Path>>(path: &P, num_channels: u32) -> Result<Vec<f32>, ()> {
+    let kind = path
+        .as_ref()
+        .extension()
+        .and_then(|ext| AudioFileKind::try_from(ext.to_str().unwrap()).ok())
+        .ok_or(())?;
+    let bytes = get_sfx(path);
+    // Unpack the samples.
+    let (samples, spec) = unpack_audio(bytes, kind);
+    // If the audio is mono (single channel), pad every sample with
+    // itself, since we later assume that audio is stored interleaved as
+    // LRLRLR (or RLRLRL). Without this, mono audio would be played in
+    // double speed.
+    let iter: Box<dyn Iterator<Item = f32>> = match spec.channels {
+        1 => Box::new(samples.into_iter().flat_map(|e| [e, e])),
+        2 => Box::new(samples.into_iter()),
+        _ => unimplemented!("Only mono and stereo sound is supported. See #80."),
+    };
+    // Create a dasp signal containing stereo sound.
+    let mut signal = signal::from_interleaved_samples_iter::<_, [f32; 2]>(iter);
+    // Create a linear interpolator, in case we need to convert the sample rate.
+    let interp = Linear::new(Signal::next(&mut signal), Signal::next(&mut signal));
+    // Create our resulting samples.
+    let samples = signal
+        .from_hz_to_hz(interp, spec.sample_rate as f64, SAMPLE_RATE as f64)
+        .until_exhausted()
+        // If the source audio is stereo and is being played as mono, discard the first channel.
+        .flat_map(|e| {
+            if num_channels == 1 {
+                vec![e[0]]
+            } else {
+                e.to_vec()
+            }
+        })
+        .collect::<Vec<f32>>();
+    Ok((samples, spec))
 }
 
 /// Unpack audio data. The required audio spec is read from the file and returned as well.
