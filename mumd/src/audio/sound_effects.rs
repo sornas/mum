@@ -4,7 +4,9 @@ use log::warn;
 use mumlib::config::SoundEffect;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::convert::TryFrom;
+use std::fmt;
 use std::fs::File;
 #[cfg(feature = "ogg")]
 use std::io::Cursor;
@@ -14,6 +16,47 @@ use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 use crate::audio::SAMPLE_RATE;
+
+pub struct SoundEffects {
+    data: Vec<Vec<f32>>,
+    loaded_paths: HashMap<PathBuf, usize>,
+}
+
+impl fmt::Debug for SoundEffects {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SoundEffects")
+            .field("loaded_paths", &self.loaded_paths)
+            .finish_non_exhaustive()
+    }
+}
+
+impl SoundEffects {
+    pub fn new() -> Self {
+        SoundEffects {
+            data: Vec::new(),
+            loaded_paths: HashMap::new(),
+        }
+    }
+
+    pub fn get<P: AsRef<Path>>(&mut self, path: &P) -> &[f32] {
+        let idx = match self.loaded_paths.entry(path.as_ref().to_owned()) {
+            Entry::Occupied(o) => *o.get(),
+            Entry::Vacant(v) => {
+                if let Ok(samples) = open_and_unpack_audio(v.key(), 2) {
+                    let idx = self.data.len();
+                    self.data.push(samples.0);
+                    v.insert(idx);
+                    idx
+                } else {
+                    // Default sound effect
+                    0
+                }
+
+            }
+        };
+        &self.data[idx]
+    }
+}
 
 /// The different kinds of files we can open.
 enum AudioFileKind {
