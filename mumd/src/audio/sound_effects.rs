@@ -17,9 +17,12 @@ use strum_macros::EnumIter;
 
 use crate::audio::SAMPLE_RATE;
 
+#[derive(Debug, Clone, Copy)]
+pub struct SoundEffectId(usize);
+
 pub struct SoundEffects {
     data: Vec<Vec<f32>>,
-    loaded_paths: HashMap<PathBuf, usize>,
+    loaded_paths: HashMap<PathBuf, SoundEffectId>,
 
     num_channels: usize,
 }
@@ -46,18 +49,18 @@ impl SoundEffects {
             Entry::Occupied(o) => *o.get(),
             Entry::Vacant(v) => {
                 if let Ok(samples) = open_and_unpack_audio(v.key(), self.num_channels) {
-                    let idx = self.data.len();
+                    let idx = SoundEffectId(self.data.len());
                     self.data.push(samples);
                     v.insert(idx);
                     idx
                 } else {
                     // Default sound effect
-                    0
+                    SoundEffectId(0)
                 }
 
             }
         };
-        &self.data[idx]
+        &self.data[idx.0]
     }
 }
 
