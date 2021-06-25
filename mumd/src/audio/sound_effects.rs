@@ -44,7 +44,7 @@ impl SoundEffects {
             Entry::Vacant(v) => {
                 if let Ok(samples) = open_and_unpack_audio(v.key(), 2) {
                     let idx = self.data.len();
-                    self.data.push(samples.0);
+                    self.data.push(samples);
                     v.insert(idx);
                     idx
                 } else {
@@ -147,15 +147,23 @@ pub fn load_sound_effects(overrides: &[SoundEffect], num_channels: usize) -> Has
             let samples = file
                 .and_then(|file| {
                     let path = PathBuf::from(file);
-                    open_and_unpack_audio(&path, 2).ok()
+                    open_and_unpack_audio(&path, num_channels).ok()
                 })
-                .unwrap_or_else(|| unpack_audio(get_default_sfx(), AudioFileKind::Wav).0);
+                .unwrap_or_else(|| unpack_audio(get_default_sfx(), AudioFileKind::Wav).unwrap().0);
             (event, samples)
         })
         .collect()
 }
 
-fn open_and_unpack_audio<P: AsRef<Path>>(path: &P, num_channels: u32) -> Result<Vec<f32>, ()> {
+/// Opens the audio data located in a file and returns the contained audio data.
+///
+/// The file kind is read from the file extension.
+///
+/// # Errors
+///
+/// Returns an error if a file extension isn't known, the file doesn't exist or something went
+/// wrong when unpacking the audio data.
+fn open_and_unpack_audio<P: AsRef<Path>>(path: &P, num_channels: usize) -> Result<Vec<f32>, ()> {
     let kind = path
         .as_ref()
         .extension()
@@ -163,7 +171,7 @@ fn open_and_unpack_audio<P: AsRef<Path>>(path: &P, num_channels: u32) -> Result<
         .ok_or(())?;
     let bytes = get_sfx(path);
     // Unpack the samples.
-    let (samples, spec) = unpack_audio(bytes, kind);
+    let (samples, spec) = unpack_audio(bytes, kind)?;
     // If the audio is mono (single channel), pad every sample with
     // itself, since we later assume that audio is stored interleaved as
     // LRLRLR (or RLRLRL). Without this, mono audio would be played in
@@ -190,11 +198,11 @@ fn open_and_unpack_audio<P: AsRef<Path>>(path: &P, num_channels: u32) -> Result<
             }
         })
         .collect::<Vec<f32>>();
-    Ok((samples, spec))
+    Ok(samples)
 }
 
 /// Unpack audio data. The required audio spec is read from the file and returned as well.
-fn unpack_audio(data: Cow<'_, [u8]>, kind: AudioFileKind) -> (Vec<f32>, AudioSpec) {
+fn unpack_audio(data: Cow<'_, [u8]>, kind: AudioFileKind) -> Result<(Vec<f32>, AudioSpec), ()> {
     match kind {
         AudioFileKind::Ogg => unpack_ogg(data),
         AudioFileKind::Wav => unpack_wav(data),
@@ -203,7 +211,7 @@ fn unpack_audio(data: Cow<'_, [u8]>, kind: AudioFileKind) -> (Vec<f32>, AudioSpe
 
 #[cfg(feature = "ogg")]
 /// Unpack ogg data.
-fn unpack_ogg(data: Cow<'_, [u8]>) -> (Vec<f32>, AudioSpec) {
+fn unpack_ogg(data: Cow<'_, [u8]>) -> Result<(Vec<f32>, AudioSpec), ()> {
     let mut reader = lewton::inside_ogg::OggStreamReader::new(Cursor::new(data.as_ref())).unwrap();
     let mut samples = Vec::new();
     while let Ok(Some(mut frame)) = reader.read_dec_packet_itl() {
@@ -214,19 +222,19 @@ fn unpack_ogg(data: Cow<'_, [u8]>) -> (Vec<f32>, AudioSpec) {
         channels: reader.ident_hdr.audio_channels as u32,
         sample_rate: reader.ident_hdr.audio_sample_rate,
     };
-    (samples, spec)
+    Ok((samples, spec))
 }
 
 #[cfg(not(feature = "ogg"))]
-/// Fallback to default sound effect since ogg is disabled.
-fn unpack_ogg(_: Cow<'_, [u8]>) -> (Vec<f32>, AudioSpec) {
+/// Always errors since ogg is disabled.
+fn unpack_ogg(_: Cow<'_, [u8]>) -> Result<(Vec<f32>, AudioSpec), ()> {
     warn!("Can't open .ogg without the ogg-feature enabled.");
-    unpack_wav(get_default_sfx())
+    Err(())
 }
 
 /// Unpack wav data.
-fn unpack_wav(data: Cow<'_, [u8]>) -> (Vec<f32>, AudioSpec) {
-    let reader = hound::WavReader::new(data.as_ref()).unwrap();
+fn unpack_wav(data: Cow<'_, [u8]>) -> Result<(Vec<f32>, AudioSpec), ()> {
+    let reader = hound::WavReader::new(data.as_ref()).map_err(|_| ())?;
     let spec = reader.spec();
     let samples = match spec.sample_format {
         hound::SampleFormat::Float => reader
@@ -242,7 +250,7 @@ fn unpack_wav(data: Cow<'_, [u8]>) -> (Vec<f32>, AudioSpec) {
         channels: spec.channels as u32,
         sample_rate: spec.sample_rate,
     };
-    (samples, spec)
+    Ok((samples, spec))
 }
 
 /// Open and return the data contained in a file, or the default sound effect if
