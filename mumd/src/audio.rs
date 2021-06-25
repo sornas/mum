@@ -136,13 +136,13 @@ impl AudioOutput {
         for effect in sound_effects {
             if let Ok(event) = NotificationEvent::try_from(effect.event.as_str()) {
                 let file = PathBuf::from(&effect.file);
-                let id = self
-                    .sound_effects
-                    .open(&file)
-                    .unwrap_or_else(|_| SoundEffects::default_sound_effect());
-                self.sound_effect_events.insert(event, id);
+                if let Ok(id) = self.sound_effects.open(&file) {
+                    self.sound_effect_events.insert(event, id);
+                } else {
+                    warn!("Invalid sound data in '{}'", &effect.file);
+                }
             } else {
-                warn!("Unknown sound effect '{}'", effect.event);
+                warn!("Unknown sound effect '{}'", &effect.event);
             }
         }
     }
