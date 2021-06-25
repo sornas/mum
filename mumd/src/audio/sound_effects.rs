@@ -20,6 +20,8 @@ use crate::audio::SAMPLE_RATE;
 pub struct SoundEffects {
     data: Vec<Vec<f32>>,
     loaded_paths: HashMap<PathBuf, usize>,
+
+    num_channels: usize,
 }
 
 impl fmt::Debug for SoundEffects {
@@ -31,10 +33,11 @@ impl fmt::Debug for SoundEffects {
 }
 
 impl SoundEffects {
-    pub fn new() -> Self {
+    pub fn new(num_channels: usize) -> Self {
         SoundEffects {
-            data: Vec::new(),
+            data: vec![unpack_audio(get_default_sfx(), AudioFileKind::Wav).unwrap().0],
             loaded_paths: HashMap::new(),
+            num_channels,
         }
     }
 
@@ -42,7 +45,7 @@ impl SoundEffects {
         let idx = match self.loaded_paths.entry(path.as_ref().to_owned()) {
             Entry::Occupied(o) => *o.get(),
             Entry::Vacant(v) => {
-                if let Ok(samples) = open_and_unpack_audio(v.key(), 2) {
+                if let Ok(samples) = open_and_unpack_audio(v.key(), self.num_channels) {
                     let idx = self.data.len();
                     self.data.push(samples);
                     v.insert(idx);
