@@ -13,21 +13,44 @@ use std::path::{Path, PathBuf};
 
 use crate::audio::SAMPLE_RATE;
 
+/// Stores unpacked audio data loaded from paths with basic caching.
+///
+/// Basic usage follows the following structure.
+/// 1) Specify a file that should be played when a specific event occurs using
+///    `SoundEffects::set_sound_effect`.
+/// 2) Repeat 1 for all events that should be set.
+/// 3) Call `SoundEffects::load_unloaded_files` to load any files that haven't already been loaded.
+/// 4) Call `SoundEffects::get_samples` when an event occurs to get the audio data that should be
+///    played.
+///
+/// If no file has been specified, or if the specified file couldn't be read for some reason, the
+/// default sound effect is returned instead.
+///
+/// # Notes on caching
+///
+/// The caching is basic in the sense that it never checks if the data is up to date. To reload the
+/// cache, clear all data using [SoundEffects::clear] and repeat the initialization process.
 pub struct SoundEffects {
+    /// The default sound effect that is returned if needed.
     default_sound_effect: Vec<f32>,
-    // None -> invalid data, use default sound effect
-    opened_files: HashMap<PathBuf, Option<Vec<f32>>>, 
+    /// The opened files and the data they contained when opened. None -> invalid data so use the
+    /// default sound effect instead.
+    opened_files: HashMap<PathBuf, Option<Vec<f32>>>,
 
+    /// Which file should be played on an event. Event not present -> default sound effect.
     events: HashMap<NotificationEvent, PathBuf>,
 
+    /// The amount of channels the audio data contains. Set on initialization and used when loading
+    /// data.
     num_channels: usize,
 }
 
 impl fmt::Debug for SoundEffects {
+    /// Custom formatting that doesn't print raw audio data.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let opened_files: Vec<_> = self.opened_files.keys().collect();
         f.debug_struct("SoundEffects")
-            .field("default_sound_effect", &"..")
+            .field("default_sound_effect", &"[..]")
             .field("opened_files", &opened_files)
             .field("num_channels", &self.num_channels)
             .field("events", &self.events)
@@ -45,11 +68,13 @@ impl SoundEffects {
         }
     }
 
+    /// Load a path and store the audio data it contained.
     pub fn load_file(&mut self, path: PathBuf) {
         let samples = open_and_unpack_audio(&path, self.num_channels).ok();
         self.opened_files.insert(path, samples);
     }
 
+    /// Set a file path that should be played when a specific event occurs.
     pub fn set_sound_effect(&mut self, sound_effect: &SoundEffect) {
         if let Ok(event) = NotificationEvent::try_from(sound_effect.event.as_str()) {
             let path = PathBuf::from(&sound_effect.file);
@@ -57,18 +82,25 @@ impl SoundEffects {
         }
     }
 
+    /// Load all currently unloaded audio files. Might take some time depending on the amount and
+    /// types of files.
     pub fn load_unloaded_files(&mut self) {
+        // Find paths to load.
         let mut to_load = Vec::new();
         for path in self.events.values() {
             if !self.opened_files.contains_key(path) {
                 to_load.push(path.to_path_buf());
             }
         }
+        // Load them.
         for path in to_load {
             self.load_file(path);
         }
     }
 
+    /// Get the samples that should be played when an event occurs.
+    ///
+    /// Note that this will not work as expected if you haven't called [load_unloaded_files].
     pub fn get_samples(&self, event: &NotificationEvent) -> &[f32] {
         self
             .events
@@ -82,6 +114,7 @@ impl SoundEffects {
             .unwrap_or(&self.default_sound_effect)
     }
 
+    /// Clear all store data, including opened audio data.
     pub fn clear(&mut self) {
         self.events.clear();
         self.opened_files.clear();
