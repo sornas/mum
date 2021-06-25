@@ -1,10 +1,6 @@
 use dasp_interpolate::linear::Linear;
 use dasp_signal::{self as signal, Signal};
-use log::warn;
-use mumlib::config::SoundEffect;
 use std::borrow::Cow;
-use std::collections::HashMap;
-use std::collections::hash_map::Entry;
 use std::convert::TryFrom;
 use std::fmt;
 use std::fs::File;
@@ -12,9 +8,7 @@ use std::fs::File;
 use std::io::Cursor;
 use std::io::Read;
 use std::ops::Index;
-use std::path::{Path, PathBuf};
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
+use std::path::Path;
 
 use crate::audio::SAMPLE_RATE;
 
@@ -90,7 +84,7 @@ struct AudioSpec {
 }
 
 /// An event where a notification is shown and a sound effect is played.
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash, EnumIter)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub enum NotificationEvent {
     ServerConnect,
     ServerDisconnect,
