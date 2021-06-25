@@ -305,7 +305,7 @@ impl State {
             self.audio_output.set_volume(output_volume);
         }
         if let Some(sound_effects) = &self.config.audio.sound_effects {
-            self.audio_output.load_sound_effects(sound_effects);
+            self.audio_output.set_sound_effects(sound_effects);
         }
     }
 

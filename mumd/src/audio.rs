@@ -13,20 +13,17 @@ use crate::state::StatePhase;
 
 use futures_util::stream::Stream;
 use futures_util::StreamExt;
-use log::warn;
 use mumble_protocol::voice::{VoicePacket, VoicePacketPayload};
 use mumble_protocol::Serverbound;
 use mumlib::config::SoundEffect;
 use std::collections::{hash_map::Entry, HashMap};
-use std::convert::TryFrom;
 use std::fmt::Debug;
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tokio::sync::watch;
 
 use self::input::{AudioInputDevice, DefaultAudioInputDevice};
 use self::output::{AudioOutputDevice, ClientStream, DefaultAudioOutputDevice};
-use self::sound_effects::{NotificationEvent, SoundEffects, SoundEffectId};
+use self::sound_effects::{NotificationEvent, SoundEffects};
 
 /// The sample rate used internally.
 const SAMPLE_RATE: u32 = 48000;
@@ -104,11 +101,8 @@ pub struct AudioOutput {
     /// Shared with [DefaultAudioOutputDevice].
     client_streams: Arc<Mutex<ClientStream>>,
 
-    /// Opened sound effects.
+    /// Loaded sound effects.
     sound_effects: SoundEffects,
-
-    /// Which file should be played on specific events.
-    sound_effect_events: HashMap<NotificationEvent, SoundEffectId>,
 }
 
 impl AudioOutput {
@@ -126,25 +120,17 @@ impl AudioOutput {
             user_volumes,
             client_streams,
             sound_effects: SoundEffects::new(num_channels),
-            sound_effect_events: HashMap::new(),
         };
-        output.load_sound_effects(&[]);
+        output.set_sound_effects(&[]);
         Ok(output)
     }
 
-    pub fn load_sound_effects(&mut self, sound_effects: &[SoundEffect]) {
+    /// Sets sound effects that should be played on specific events.
+    pub fn set_sound_effects(&mut self, sound_effects: &[SoundEffect]) {
         for effect in sound_effects {
-            if let Ok(event) = NotificationEvent::try_from(effect.event.as_str()) {
-                let file = PathBuf::from(&effect.file);
-                if let Ok(id) = self.sound_effects.open(&file) {
-                    self.sound_effect_events.insert(event, id);
-                } else {
-                    warn!("Invalid sound data in '{}'", &effect.file);
-                }
-            } else {
-                warn!("Unknown sound effect '{}'", &effect.event);
-            }
+            self.sound_effects.set_sound_effect(&effect);
         }
+        self.sound_effects.load_unloaded_files();
     }
 
     /// Decodes a voice packet.
@@ -191,12 +177,7 @@ impl AudioOutput {
 
     /// Queues a sound effect.
     pub fn play_effect(&self, effect: NotificationEvent) {
-        let id = self
-            .sound_effect_events
-            .get(&effect)
-            .cloned()
-            .unwrap_or_else(SoundEffects::default_sound_effect);
-        let samples = &self.sound_effects[id];
+        let samples = self.sound_effects.get_samples(&effect);
         self.client_streams.lock().unwrap().add_sound_effect(samples);
     }
 }

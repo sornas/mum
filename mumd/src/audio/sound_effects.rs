@@ -1,61 +1,90 @@
 use dasp_interpolate::linear::Linear;
 use dasp_signal::{self as signal, Signal};
+use mumlib::config::SoundEffect;
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
 use std::fs::File;
 #[cfg(feature = "ogg")]
 use std::io::Cursor;
 use std::io::Read;
-use std::ops::Index;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::audio::SAMPLE_RATE;
 
-#[derive(Debug, Clone, Copy)]
-pub struct SoundEffectId(usize);
-
 pub struct SoundEffects {
-    data: Vec<Vec<f32>>,
+    default_sound_effect: Vec<f32>,
+    // None -> invalid data, use default sound effect
+    opened_files: HashMap<PathBuf, Option<Vec<f32>>>, 
+
+    events: HashMap<NotificationEvent, PathBuf>,
 
     num_channels: usize,
 }
 
 impl fmt::Debug for SoundEffects {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let opened_files: Vec<_> = self.opened_files.keys().collect();
         f.debug_struct("SoundEffects")
+            .field("default_sound_effect", &"..")
+            .field("opened_files", &opened_files)
             .field("num_channels", &self.num_channels)
-            .finish_non_exhaustive()
+            .field("events", &self.events)
+            .finish()
     }
 }
 
 impl SoundEffects {
     pub fn new(num_channels: usize) -> Self {
         SoundEffects {
-            data: vec![unpack_audio(get_default_sfx(), AudioFileKind::Wav).unwrap().0],
+            default_sound_effect: unpack_audio(get_default_sfx(), AudioFileKind::Wav).unwrap().0,
+            opened_files: HashMap::new(),
+            events: HashMap::new(),
             num_channels,
         }
     }
 
-    pub fn open<P: AsRef<Path>>(&mut self, path: &P) -> Result<SoundEffectId, ()> {
-        open_and_unpack_audio(&path.as_ref(), self.num_channels)
-            .map(|samples| {
-                let idx = SoundEffectId(self.data.len());
-                self.data.push(samples);
-                idx
-            })
+    pub fn load_file(&mut self, path: PathBuf) {
+        let samples = open_and_unpack_audio(&path, self.num_channels).ok();
+        self.opened_files.insert(path, samples);
     }
 
-    pub fn default_sound_effect() -> SoundEffectId {
-        SoundEffectId(0)
+    pub fn set_sound_effect(&mut self, sound_effect: &SoundEffect) {
+        if let Ok(event) = NotificationEvent::try_from(sound_effect.event.as_str()) {
+            let path = PathBuf::from(&sound_effect.file);
+            self.events.insert(event, path);
+        }
     }
-}
 
-impl Index<SoundEffectId> for SoundEffects {
-    type Output = [f32];
+    pub fn load_unloaded_files(&mut self) {
+        let mut to_load = Vec::new();
+        for path in self.events.values() {
+            if !self.opened_files.contains_key(path) {
+                to_load.push(path.to_path_buf());
+            }
+        }
+        for path in to_load {
+            self.load_file(path);
+        }
+    }
 
-    fn index(&self, index: SoundEffectId) -> &Self::Output {
-        &self.data[index.0]
+    pub fn get_samples(&self, event: &NotificationEvent) -> &[f32] {
+        self
+            .events
+            .get(event)
+            .and_then(|path| self.opened_files.get(path))
+            // Here we have an Option<&Option<Vec<f32>>>,
+            // so we do None => None
+            //          Some(&None) => None
+            //          Some(&Some(v)) => Some(&v)
+            .and_then(|o| o.as_ref())
+            .unwrap_or(&self.default_sound_effect)
+    }
+
+    pub fn clear(&mut self) {
+        self.events.clear();
+        self.opened_files.clear();
     }
 }
 
