@@ -13,10 +13,12 @@ use crate::state::StatePhase;
 
 use futures_util::stream::Stream;
 use futures_util::StreamExt;
+use log::warn;
 use mumble_protocol::voice::{VoicePacket, VoicePacketPayload};
 use mumble_protocol::Serverbound;
 use mumlib::config::SoundEffect;
 use std::collections::{hash_map::Entry, HashMap};
+use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -118,19 +120,31 @@ impl AudioOutput {
 
         let client_streams = default.client_streams();
 
-        let mut res = Self {
+        let num_channels = default.num_channels();
+        let mut output = Self {
             device: default,
             user_volumes,
             client_streams,
-            sound_effects: SoundEffects::new(2),
+            sound_effects: SoundEffects::new(num_channels),
             sound_effect_events: HashMap::new(),
         };
-        res.load_sound_effects(&[]);
-        Ok(res)
+        output.load_sound_effects(&[]);
+        Ok(output)
     }
 
     pub fn load_sound_effects(&mut self, sound_effects: &[SoundEffect]) {
-        todo!()
+        for effect in sound_effects {
+            if let Ok(event) = NotificationEvent::try_from(effect.event.as_str()) {
+                let file = PathBuf::from(&effect.file);
+                let id = self
+                    .sound_effects
+                    .open(&file)
+                    .unwrap_or_else(|_| SoundEffects::default_sound_effect());
+                self.sound_effect_events.insert(event, id);
+            } else {
+                warn!("Unknown sound effect '{}'", effect.event);
+            }
+        }
     }
 
     /// Decodes a voice packet.
