@@ -11,6 +11,7 @@ use std::fs::File;
 #[cfg(feature = "ogg")]
 use std::io::Cursor;
 use std::io::Read;
+use std::ops::Index;
 use std::path::{Path, PathBuf};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
@@ -22,7 +23,6 @@ pub struct SoundEffectId(usize);
 
 pub struct SoundEffects {
     data: Vec<Vec<f32>>,
-    loaded_paths: HashMap<PathBuf, SoundEffectId>,
 
     num_channels: usize,
 }
@@ -30,7 +30,7 @@ pub struct SoundEffects {
 impl fmt::Debug for SoundEffects {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SoundEffects")
-            .field("loaded_paths", &self.loaded_paths)
+            .field("num_channels", &self.num_channels)
             .finish_non_exhaustive()
     }
 }
@@ -39,28 +39,29 @@ impl SoundEffects {
     pub fn new(num_channels: usize) -> Self {
         SoundEffects {
             data: vec![unpack_audio(get_default_sfx(), AudioFileKind::Wav).unwrap().0],
-            loaded_paths: HashMap::new(),
             num_channels,
         }
     }
 
-    pub fn get<P: AsRef<Path>>(&mut self, path: &P) -> &[f32] {
-        let idx = match self.loaded_paths.entry(path.as_ref().to_owned()) {
-            Entry::Occupied(o) => *o.get(),
-            Entry::Vacant(v) => {
-                if let Ok(samples) = open_and_unpack_audio(v.key(), self.num_channels) {
-                    let idx = SoundEffectId(self.data.len());
-                    self.data.push(samples);
-                    v.insert(idx);
-                    idx
-                } else {
-                    // Default sound effect
-                    SoundEffectId(0)
-                }
+    pub fn open<P: AsRef<Path>>(&mut self, path: &P) -> Result<SoundEffectId, ()> {
+        open_and_unpack_audio(&path.as_ref(), self.num_channels)
+            .map(|samples| {
+                let idx = SoundEffectId(self.data.len());
+                self.data.push(samples);
+                idx
+            })
+    }
 
-            }
-        };
-        &self.data[idx.0]
+    pub fn default_sound_effect() -> SoundEffectId {
+        SoundEffectId(0)
+    }
+}
+
+impl Index<SoundEffectId> for SoundEffects {
+    type Output = [f32];
+
+    fn index(&self, index: SoundEffectId) -> &Self::Output {
+        &self.data[index.0]
     }
 }
 
@@ -90,7 +91,7 @@ struct AudioSpec {
 
 /// An event where a notification is shown and a sound effect is played.
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash, EnumIter)]
-pub enum NotificationEvents {
+pub enum NotificationEvent {
     ServerConnect,
     ServerDisconnect,
     UserConnected,
@@ -103,62 +104,26 @@ pub enum NotificationEvents {
     Undeafen,
 }
 
-impl TryFrom<&str> for NotificationEvents {
+impl TryFrom<&str> for NotificationEvent {
     type Error = ();
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         match s {
-            "server_connect" => Ok(NotificationEvents::ServerConnect),
-            "server_disconnect" => Ok(NotificationEvents::ServerDisconnect),
-            "user_connected" => Ok(NotificationEvents::UserConnected),
-            "user_disconnected" => Ok(NotificationEvents::UserDisconnected),
-            "user_joined_channel" => Ok(NotificationEvents::UserJoinedChannel),
-            "user_left_channel" => Ok(NotificationEvents::UserLeftChannel),
-            "mute" => Ok(NotificationEvents::Mute),
-            "unmute" => Ok(NotificationEvents::Unmute),
-            "deafen" => Ok(NotificationEvents::Deafen),
-            "undeafen" => Ok(NotificationEvents::Undeafen),
+            "server_connect" => Ok(NotificationEvent::ServerConnect),
+            "server_disconnect" => Ok(NotificationEvent::ServerDisconnect),
+            "user_connected" => Ok(NotificationEvent::UserConnected),
+            "user_disconnected" => Ok(NotificationEvent::UserDisconnected),
+            "user_joined_channel" => Ok(NotificationEvent::UserJoinedChannel),
+            "user_left_channel" => Ok(NotificationEvent::UserLeftChannel),
+            "mute" => Ok(NotificationEvent::Mute),
+            "unmute" => Ok(NotificationEvent::Unmute),
+            "deafen" => Ok(NotificationEvent::Deafen),
+            "undeafen" => Ok(NotificationEvent::Undeafen),
             _ => {
                 Err(())
             }
         }
     }
-}
-
-/// Loads files into an "event -> data"-map, with support for overriding
-/// specific events with another sound file.
-pub fn load_sound_effects(overrides: &[SoundEffect], num_channels: usize) -> HashMap<NotificationEvents, Vec<f32>> {
-    let overrides: HashMap<_, _> = overrides
-        .iter()
-        .filter_map(|sound_effect| {
-            let (event, file) = (&sound_effect.event, &sound_effect.file);
-            if let Ok(event) = NotificationEvents::try_from(event.as_str()) {
-                Some((event, file))
-            } else {
-                warn!("Unknown notification event '{}'", event);
-                None
-            }
-        })
-        .collect();
-
-    // Construct a hashmap that maps every [NotificationEvent] to a vector of
-    // plain floating point audio data with the global sample rate as a
-    // Vec<f32>. We do this by iterating over all [NotificationEvent]-variants
-    // and opening either the file passed as an override or the fallback sound
-    // effect (if omitted). We then use dasp to convert to the correct sample rate.
-    NotificationEvents::iter()
-        .map(|event| {
-            let file = overrides.get(&event);
-            // Try to open the file if overriden, otherwise use the default sound effect.
-            let samples = file
-                .and_then(|file| {
-                    let path = PathBuf::from(file);
-                    open_and_unpack_audio(&path, num_channels).ok()
-                })
-                .unwrap_or_else(|| unpack_audio(get_default_sfx(), AudioFileKind::Wav).unwrap().0);
-            (event, samples)
-        })
-        .collect()
 }
 
 /// Opens the audio data located in a file and returns the contained audio data.
@@ -168,14 +133,14 @@ pub fn load_sound_effects(overrides: &[SoundEffect], num_channels: usize) -> Has
 /// # Errors
 ///
 /// Returns an error if a file extension isn't known, the file doesn't exist or something went
-/// wrong when unpacking the audio data.
+/// wrong when opening or unpacking the audio data.
 fn open_and_unpack_audio<P: AsRef<Path>>(path: &P, num_channels: usize) -> Result<Vec<f32>, ()> {
     let kind = path
         .as_ref()
         .extension()
         .and_then(|ext| AudioFileKind::try_from(ext.to_str().unwrap()).ok())
         .ok_or(())?;
-    let bytes = get_sfx(path);
+    let bytes = get_sfx(path)?;
     // Unpack the samples.
     let (samples, spec) = unpack_audio(bytes, kind)?;
     // If the audio is mono (single channel), pad every sample with
@@ -262,14 +227,13 @@ fn unpack_wav(data: Cow<'_, [u8]>) -> Result<(Vec<f32>, AudioSpec), ()> {
 /// Open and return the data contained in a file, or the default sound effect if
 /// the file couldn't be found.
 // moo
-fn get_sfx<P: AsRef<Path>>(file: P) -> Cow<'static, [u8]> {
+fn get_sfx<P: AsRef<Path>>(file: P) -> Result<Cow<'static, [u8]>, ()> {
     let mut buf: Vec<u8> = Vec::new();
     if let Ok(mut file) = File::open(file.as_ref()) {
         file.read_to_end(&mut buf).unwrap();
-        Cow::from(buf)
+        Ok(Cow::from(buf))
     } else {
-        warn!("File not found: '{}'", file.as_ref().display());
-        get_default_sfx()
+        Err(())
     }
 }
 

@@ -18,12 +18,13 @@ use mumble_protocol::Serverbound;
 use mumlib::config::SoundEffect;
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt::Debug;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tokio::sync::watch;
 
 use self::input::{AudioInputDevice, DefaultAudioInputDevice};
 use self::output::{AudioOutputDevice, ClientStream, DefaultAudioOutputDevice};
-use self::sound_effects::NotificationEvents;
+use self::sound_effects::{NotificationEvent, SoundEffects, SoundEffectId};
 
 /// The sample rate used internally.
 const SAMPLE_RATE: u32 = 48000;
@@ -101,8 +102,11 @@ pub struct AudioOutput {
     /// Shared with [DefaultAudioOutputDevice].
     client_streams: Arc<Mutex<ClientStream>>,
 
-    /// Which sound effect should be played on an event.
-    sounds: HashMap<NotificationEvents, Vec<f32>>,
+    /// Opened sound effects.
+    sound_effects: SoundEffects,
+
+    /// Which file should be played on specific events.
+    sound_effect_events: HashMap<NotificationEvent, SoundEffectId>,
 }
 
 impl AudioOutput {
@@ -116,18 +120,17 @@ impl AudioOutput {
 
         let mut res = Self {
             device: default,
-            sounds: HashMap::new(),
-            client_streams,
             user_volumes,
+            client_streams,
+            sound_effects: SoundEffects::new(2),
+            sound_effect_events: HashMap::new(),
         };
         res.load_sound_effects(&[]);
         Ok(res)
     }
 
-    /// Sets the sound effects according to some overrides, using some default
-    /// value if an event isn't overriden.
-    pub fn load_sound_effects(&mut self, overrides: &[SoundEffect]) {
-        self.sounds = sound_effects::load_sound_effects(overrides, self.device.num_channels());
+    pub fn load_sound_effects(&mut self, sound_effects: &[SoundEffect]) {
+        todo!()
     }
 
     /// Decodes a voice packet.
@@ -173,8 +176,13 @@ impl AudioOutput {
     }
 
     /// Queues a sound effect.
-    pub fn play_effect(&self, effect: NotificationEvents) {
-        let samples = self.sounds.get(&effect).unwrap();
+    pub fn play_effect(&self, effect: NotificationEvent) {
+        let id = self
+            .sound_effect_events
+            .get(&effect)
+            .cloned()
+            .unwrap_or_else(SoundEffects::default_sound_effect);
+        let samples = &self.sound_effects[id];
         self.client_streams.lock().unwrap().add_sound_effect(samples);
     }
 }
