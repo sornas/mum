@@ -16,6 +16,7 @@ default = ["notifications", "ogg"]
 
 notifications = ["libnotify"]
 ogg = ["lewton"]
+gui = ["gtk"]
 
 [dependencies]
 mumlib = { version = "0.4", path = "../mumlib" }
@@ -46,3 +47,8 @@ lewton = { version = "0.10", optional = true }
 
 #compressor = "0.3"
 #daemonize = "0.4"
+
+[dependencies.gtk]
+version = "0.1"
+package = "gtk4"
+optional = true

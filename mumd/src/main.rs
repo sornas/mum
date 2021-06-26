@@ -134,10 +134,12 @@ async fn receive_gui(
     mut gui_command_receiver: mpsc::UnboundedReceiver<Command>,
     command_sender: CommandSender,
 ) {
-    while let Some(command) = gui_command_receiver.recv().await {
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        command_sender.send((command, tx)).unwrap();
-        // Ignore all respones for now.
-        while let Some(_) = rx.recv().await {} 
+    if cfg!(feature = "gui") {
+        while let Some(command) = gui_command_receiver.recv().await {
+            let (tx, mut rx) = mpsc::unbounded_channel();
+            command_sender.send((command, tx)).unwrap();
+            // Ignore all respones for now.
+            while let Some(_) = rx.recv().await {} 
+        }
     }
 }
