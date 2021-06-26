@@ -11,7 +11,6 @@ pub fn start(
     command_sender: mpsc::UnboundedSender<Command>,
     server_receiver: mpsc::UnboundedReceiver<Option<Server>>
 ) {
-    let command_sender = Arc::new(command_sender);
     let server_receiver = Arc::new(std::sync::Mutex::new(server_receiver));
     let app = Application::new(Some("net.sornas.mum"), Default::default());
     app.connect_activate(move |app| {
@@ -26,7 +25,7 @@ pub fn start(
             .margin_end(12)
             .build();
 
-        let command_sender = Arc::clone(&command_sender);
+        let command_sender = command_sender.clone();
         button.connect_clicked(move |_| {
             command_sender.send(Command::ServerDisconnect).unwrap();
         });
