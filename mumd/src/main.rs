@@ -6,11 +6,14 @@ use log::*;
 use mumlib::command::{Command, CommandResponse};
 use mumlib::setup_logger;
 use std::io::ErrorKind;
-use tokio::{
-    net::{UnixListener, UnixStream},
-    sync::mpsc,
-};
+use tokio::net::{UnixListener, UnixStream};
+use tokio::sync::mpsc;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
+
+type CommandSender = mpsc::UnboundedSender<(
+    Command,
+    mpsc::UnboundedSender<mumlib::error::Result<Option<CommandResponse>>>,
+)>;
 
 fn main() {
     if std::env::args().any(|s| s.as_str() == "--version" || s.as_str() == "-V") {
@@ -20,11 +23,13 @@ fn main() {
 
     setup_logger(std::io::stderr(), true);
 
+    let (_tx, rx) = mpsc::unbounded_channel();
+
     let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(mumd());
+    rt.block_on(mumd(rx));
 }
 
-async fn mumd() {
+async fn mumd(gui_command_receiver: mpsc::UnboundedReceiver<Command>) {
     mumd::notifications::init();
 
     // check if another instance is live
@@ -70,7 +75,8 @@ async fn mumd() {
 
     let run = select! {
         r = mumd::client::handle(state, command_receiver).fuse() => r,
-        _ = receive_commands(command_sender).fuse() => Ok(()),
+        _ = receive_commands(command_sender.clone()).fuse() => Ok(()),
+        _ = receive_gui(gui_command_receiver, command_sender).fuse() => Ok(()),
     };
 
     if let Err(e) = run {
@@ -79,12 +85,7 @@ async fn mumd() {
     }
 }
 
-async fn receive_commands(
-    command_sender: mpsc::UnboundedSender<(
-        Command,
-        mpsc::UnboundedSender<mumlib::error::Result<Option<CommandResponse>>>,
-    )>,
-) {
+async fn receive_commands(command_sender: CommandSender) {
     let socket = UnixListener::bind(mumlib::SOCKET_PATH).unwrap();
 
     loop {
@@ -126,5 +127,17 @@ async fn receive_commands(
                 }
             });
         }
+    }
+}
+
+async fn receive_gui(
+    mut gui_command_receiver: mpsc::UnboundedReceiver<Command>,
+    command_sender: CommandSender,
+) {
+    while let Some(command) = gui_command_receiver.recv().await {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        command_sender.send((command, tx)).unwrap();
+        // Ignore all respones for now.
+        while let Some(_) = rx.recv().await {} 
     }
 }
