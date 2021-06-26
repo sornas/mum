@@ -1,27 +1,4 @@
-#![warn(elided_lifetimes_in_paths)]
-#![warn(meta_variable_misuse)]
-#![warn(missing_debug_implementations)]
-#![warn(single_use_lifetimes)]
-#![warn(unreachable_pub)]
-#![warn(unused_crate_dependencies)]
-#![warn(unused_import_braces)]
-#![warn(unused_lifetimes)]
-#![warn(unused_qualifications)]
-#![deny(macro_use_extern_crate)]
-#![deny(missing_abi)]
-#![deny(future_incompatible)]
-#![forbid(unsafe_code)]
-#![forbid(non_ascii_idents)]
-
-pub mod audio;
-pub mod client;
-pub mod command;
-pub mod error;
-pub mod network;
-pub mod notifications;
-pub mod state;
-
-use crate::state::State;
+use mumd::state::State;
 
 use bytes::{BufMut, BytesMut};
 use futures_util::{select, FutureExt, SinkExt, StreamExt};
@@ -43,7 +20,7 @@ async fn main() {
     }
 
     setup_logger(std::io::stderr(), true);
-    notifications::init();
+    mumd::notifications::init();
 
     // check if another instance is live
     let connection = UnixStream::connect(mumlib::SOCKET_PATH).await;
@@ -87,7 +64,7 @@ async fn main() {
     };
 
     let run = select! {
-        r = client::handle(state, command_receiver).fuse() => r,
+        r = mumd::client::handle(state, command_receiver).fuse() => r,
         _ = receive_commands(command_sender).fuse() => Ok(()),
     };
 
