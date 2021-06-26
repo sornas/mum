@@ -1,3 +1,6 @@
+#[cfg(feature = "gui")]
+mod gui;
+
 use mumd::state::State;
 
 use bytes::{BufMut, BytesMut};
@@ -24,10 +27,22 @@ fn main() {
 
     setup_logger(std::io::stderr(), true);
 
-    let (_tx, rx) = mpsc::unbounded_channel();
+    let gui_rx = {
+        // Scoped allow(unused_variables) so we don't ignore all unusued variables if we
+        // compile without feature = gui.
+        #[allow(unused_variables)]
+
+        let (tx, rx) = mpsc::unbounded_channel();
+        #[cfg(feature = "gui")]
+        std::thread::spawn(move || {
+            gui::start(tx);
+        });
+        rx
+    };
+
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(mumd(rx));
+    rt.block_on(mumd(gui_rx));
 }
 
 async fn mumd(gui_command_receiver: mpsc::UnboundedReceiver<Command>) {
