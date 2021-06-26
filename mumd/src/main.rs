@@ -1,7 +1,7 @@
 #[cfg(feature = "gui")]
 mod gui;
 
-use mumd::state::State;
+use mumd::state::{server::Server, State};
 
 use bytes::{BufMut, BytesMut};
 use futures_util::{select, FutureExt, SinkExt, StreamExt};
@@ -27,25 +27,29 @@ fn main() {
 
     setup_logger(std::io::stderr(), true);
 
-    let gui_rx = {
+    #[allow(unused_variables)]
+    let (gui_cmd_rx, gui_server_tx) = {
         // Scoped allow(unused_variables) so we don't ignore all unusued variables if we
         // compile without feature = gui.
-        #[allow(unused_variables)]
 
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel();
+        let (server_tx, server_rx) = mpsc::unbounded_channel();
         #[cfg(feature = "gui")]
         std::thread::spawn(move || {
-            gui::start(tx);
+            gui::start(cmd_tx, server_rx);
         });
-        rx
+        (cmd_rx, server_tx)
     };
 
 
     let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(mumd(gui_rx));
+    rt.block_on(mumd(gui_cmd_rx, gui_server_tx));
 }
 
-async fn mumd(gui_command_receiver: mpsc::UnboundedReceiver<Command>) {
+async fn mumd(
+    gui_command_receiver: mpsc::UnboundedReceiver<Command>,
+    gui_server_sender: mpsc::UnboundedSender<Option<Server>>,
+) {
     mumd::notifications::init();
 
     // check if another instance is live
@@ -81,7 +85,7 @@ async fn mumd(gui_command_receiver: mpsc::UnboundedReceiver<Command>) {
 
     let (command_sender, command_receiver) = mpsc::unbounded_channel();
 
-    let state = match State::new() {
+    let state = match State::new(gui_server_sender) {
         Ok(s) => s,
         Err(e) => {
             error!("Error instantiating mumd: {}", e);

@@ -88,12 +88,13 @@ pub struct State {
     message_buffer: Vec<(NaiveDateTime, String, u32)>,
 
     phase_watcher: (watch::Sender<StatePhase>, watch::Receiver<StatePhase>),
+    gui_server_sender: mpsc::UnboundedSender<Option<Server>>,
 
     events: Vec<MumbleEvent>,
 }
 
 impl State {
-    pub fn new() -> Result<Self, StateError> {
+    pub fn new(gui_server_sender: mpsc::UnboundedSender<Option<Server>>) -> Result<Self, StateError> {
         let config = mumlib::config::read_cfg(&mumlib::config::default_cfg_path())?;
         let phase_watcher = watch::channel(StatePhase::Disconnected);
         let audio_input = AudioInput::new(
@@ -110,9 +111,11 @@ impl State {
             audio_output,
             message_buffer: Vec::new(),
             phase_watcher,
+            gui_server_sender,
             events: Vec::new(),
         };
         state.reload_config();
+        state.update_gui();
         Ok(state)
     }
 
@@ -315,6 +318,10 @@ impl State {
 
     pub fn broadcast_phase(&self, phase: StatePhase) {
         self.phase_watcher.0.send(phase).unwrap();
+    }
+
+    pub fn update_gui(&self) {
+        let _ = self.gui_server_sender.send(self.server.clone());
     }
 
     pub fn initialized(&self) {
@@ -622,6 +629,7 @@ pub fn handle_command(
                 TcpEvent::Connected => move |res| {
                     //runs the closure when the client is connected
                     if let TcpEventData::Connected(res) = res {
+                        state.read().unwrap().update_gui();
                         Box::new(iter::once(res.map(|msg| {
                             Some(CommandResponse::ServerConnect {
                                 welcome_message: if msg.has_welcome_text() {
@@ -656,6 +664,7 @@ pub fn handle_command(
             state
                 .audio_output
                 .play_effect(NotificationEvents::ServerDisconnect);
+            state.update_gui();
             now!(Ok(None))
         }
         Command::ServerStatus { host, port } => ExecutionContext::Ping(
