@@ -6,6 +6,7 @@ use log::*;
 use mumlib::command::{Command, CommandResponse};
 use mumlib::setup_logger;
 use std::io::ErrorKind;
+use tokio::join;
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::mpsc;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
@@ -73,10 +74,19 @@ async fn mumd(gui_command_receiver: mpsc::UnboundedReceiver<Command>) {
         }
     };
 
+    // This combination of select/join ensures that we're done if _either_
+    // 1) the mumble client terminates, or
+    // 2) _both_ the command and gui handler returns.
     let run = select! {
         r = mumd::client::handle(state, command_receiver).fuse() => r,
-        _ = receive_commands(command_sender.clone()).fuse() => Ok(()),
-        _ = receive_gui(gui_command_receiver, command_sender).fuse() => Ok(()),
+        // Join already awaits but the select also wants to await so we
+        // create a new async block.
+        _ = async {
+            join!(
+                receive_commands(command_sender.clone()).fuse(),
+                receive_gui(gui_command_receiver, command_sender).fuse(),
+            )
+        }.fuse() => Ok(()),
     };
 
     if let Err(e) = run {
