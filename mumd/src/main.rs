@@ -12,14 +12,19 @@ use tokio::{
 };
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
-#[tokio::main]
-async fn main() {
+fn main() {
     if std::env::args().any(|s| s.as_str() == "--version" || s.as_str() == "-V") {
         println!("mumd {}", env!("VERSION"));
         return;
     }
 
     setup_logger(std::io::stderr(), true);
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(mumd());
+}
+
+async fn mumd() {
     mumd::notifications::init();
 
     // check if another instance is live
