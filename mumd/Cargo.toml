@@ -16,6 +16,7 @@ default = ["notifications", "ogg"]
 
 notifications = ["mum/notifications"]
 ogg = ["mum/ogg"]
+gui = ["gtk"]
 
 [dependencies]
 mumlib = { version = "0.4", path = "../mumlib" }
