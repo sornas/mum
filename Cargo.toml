@@ -3,9 +3,15 @@
 [workspace]
 
 members = [
-    "mumd",
+    "mum",
     "mumctl",
+    "mumd",
     "mumlib"
+]
+
+default-members = [
+    "mumctl",
+    "mumd"
 ]
 
 [profile.release]

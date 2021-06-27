@@ -1,11 +1,10 @@
 #[cfg(feature = "gui")]
 mod gui;
 
-use mumd::state::{server::Server, State};
-
 use bytes::{BufMut, BytesMut};
 use futures_util::{select, FutureExt, SinkExt, StreamExt};
 use log::*;
+use mum::state::{server::Server, State};
 use mumlib::command::{Command, CommandResponse};
 use mumlib::setup_logger;
 use std::io::ErrorKind;
@@ -50,7 +49,7 @@ async fn mumd(
     gui_command_receiver: mpsc::UnboundedReceiver<Command>,
     gui_server_sender: mpsc::UnboundedSender<Option<Server>>,
 ) {
-    mumd::notifications::init();
+    mum::notifications::init();
 
     // check if another instance is live
     let connection = UnixStream::connect(mumlib::SOCKET_PATH).await;
@@ -97,7 +96,7 @@ async fn mumd(
     // 1) the mumble client terminates, or
     // 2) _both_ the command and gui handler returns.
     let run = select! {
-        r = mumd::client::handle(state, command_receiver).fuse() => r,
+        r = mum::client::handle(state, command_receiver).fuse() => r,
         // Join already awaits but the select also wants to await so we
         // create a new async block.
         _ = async {

@@ -1,0 +1,47 @@
+[package]
+name = "mum"
+version = "0.4.0"
+authors = ["Gustav Sörnäs <gustav@sornas.net>",
+           "Eskil Queseth <eskilq@kth.se>"]
+edition = "2018"
+description = """
+Core functionality to build a Mumble client.
+"""
+repository = "https://github.com/sornas/mum"
+license = "MIT"
+readme = "../README.md"
+
+[features]
+default = ["notifications", "ogg"]
+
+notifications = ["libnotify"]
+ogg = ["lewton"]
+
+[dependencies]
+mumlib = { version = "0.4", path = "../mumlib" }
+
+cpal = "0.13"
+bytes = "1"
+dasp_interpolate = { version = "0.11", features = ["linear"] }
+dasp_signal = "0.11"
+dasp_ring_buffer = "0.11"
+futures-util = { version = "0.3", features = ["sink"]}
+futures-channel = "0.3"
+hound = "3"
+log = "0.4"
+mumble-protocol = "0.4"
+native-tls = "0.2"
+opus = "0.2"
+serde = { version = "1", features = ["derive"] }
+strum = "0.20"
+strum_macros = "0.20"
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "sync", "net", "time", "fs"] }
+tokio-native-tls = "0.3"
+tokio-util = { version = "0.6", features = ["codec", "net"] }
+chrono = "0.4"
+
+libnotify = { version = "1", optional = true }
+lewton = { version = "0.10", optional = true }
+
+#compressor = "0.3"
+#daemonize = "0.4"

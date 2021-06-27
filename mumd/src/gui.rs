@@ -2,7 +2,7 @@ use glib::{clone, MainContext};
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::{Application, ApplicationWindow, Button};
-use mumd::state::server::Server;
+use mum::state::server::Server;
 use mumlib::command::Command;
 use std::sync::Arc;
 use tokio::sync::mpsc;

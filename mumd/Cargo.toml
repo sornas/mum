@@ -14,39 +14,20 @@ readme = "../README.md"
 [features]
 default = ["notifications", "ogg"]
 
-notifications = ["libnotify"]
-ogg = ["lewton"]
-gui = ["gtk"]
+notifications = ["mum/notifications"]
+ogg = ["mum/ogg"]
 
 [dependencies]
 mumlib = { version = "0.4", path = "../mumlib" }
+mum = { version = "0.4", path = "../mum", default-features = false }
 
-cpal = "0.13"
-bytes = "1.0"
-dasp_interpolate = { version = "0.11", features = ["linear"] }
-dasp_signal = "0.11"
-dasp_ring_buffer = "0.11"
+bytes = "1"
 futures-util = { version = "0.3", features = ["sink"]}
-futures-channel = "0.3"
-hound = "3.4"
 log = "0.4"
-mumble-protocol = "0.4.1"
-native-tls = "0.2"
-opus = "0.2"
-serde = { version = "1.0", features = ["derive"] }
-strum = "0.20"
-strum_macros = "0.20"
-tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread", "sync", "net", "time", "fs"] }
-tokio-native-tls = "0.3"
-tokio-util = { version = "0.6", features = ["codec", "net"] }
-bincode = "1.3.2"
-chrono = "0.4"
 
-libnotify = { version = "1", optional = true }
-lewton = { version = "0.10", optional = true }
-
-#compressor = "0.3"
-#daemonize = "0.4"
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
+tokio-util = { version = "0.6", features = ["codec"] }
+bincode = "1"
 
 [dependencies.gtk]
 version = "0.1"

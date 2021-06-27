@@ -20,7 +20,3 @@ pub mod error;
 pub mod network;
 pub mod notifications;
 pub mod state;
-
-use bincode as _; // used in binary
-#[cfg(feature = "gtk")]
-use gtk as _; // used in gui binary
