@@ -72,19 +72,6 @@ impl Server {
         }
     }
 
-    pub fn parse_user_state(&mut self, msg: msgs::UserState) {
-        if !msg.has_session() {
-            warn!("Can't parse user state without session");
-            return;
-        }
-        match self.users.entry(msg.get_session()) {
-            Entry::Vacant(e) => {
-                e.insert(User::new(msg));
-            }
-            Entry::Occupied(mut e) => e.get_mut().parse_user_state(msg),
-        }
-    }
-
     pub fn channels(&self) -> &HashMap<u32, Channel> {
         &self.channels
     }

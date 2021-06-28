@@ -42,42 +42,6 @@ impl User {
         }
     }
 
-    pub fn parse_user_state(&mut self, mut msg: msgs::UserState) {
-        if msg.has_channel_id() {
-            self.channel = msg.get_channel_id();
-        }
-        if msg.has_comment() {
-            self.comment = Some(msg.take_comment());
-        }
-        if msg.has_hash() {
-            self.hash = Some(msg.take_hash());
-        }
-        if msg.has_name() {
-            self.name = msg.take_name();
-        }
-        if msg.has_priority_speaker() {
-            self.priority_speaker = msg.get_priority_speaker();
-        }
-        if msg.has_recording() {
-            self.recording = msg.get_recording();
-        }
-        if msg.has_suppress() {
-            self.suppress = msg.get_suppress();
-        }
-        if msg.has_self_mute() {
-            self.self_mute = msg.get_self_mute();
-        }
-        if msg.has_self_deaf() {
-            self.self_deaf = msg.get_self_deaf();
-        }
-        if msg.has_mute() {
-            self.mute = msg.get_mute();
-        }
-        if msg.has_deaf() {
-            self.deaf = msg.get_deaf();
-        }
-    }
-
     pub fn apply_user_diff(&mut self, diff: &UserDiff) {
         if let Some(comment) = diff.comment.clone() {
             self.comment = Some(comment);
