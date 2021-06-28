@@ -7,7 +7,7 @@ use crate::error::StateError;
 use crate::network::tcp::{DisconnectedReason, TcpEvent, TcpEventData};
 use crate::network::{ConnectionInfo, VoiceStreamType};
 use crate::notifications;
-use crate::state::server::ConnectedServer;
+use crate::state::server::{ConnectedServer, Server};
 use crate::state::user::UserDiff;
 
 use chrono::NaiveDateTime;
@@ -82,7 +82,7 @@ pub(crate) enum StatePhase {
 #[derive(Debug)]
 pub struct State {
     config: Config,
-    server: Option<ConnectedServer>,
+    server: Server,
     audio_input: AudioInput,
     audio_output: AudioOutput,
     message_buffer: Vec<(NaiveDateTime, String, u32)>,
@@ -105,7 +105,7 @@ impl State {
             .map_err(StateError::AudioError)?;
         let mut state = Self {
             config,
-            server: None,
+            server: Server::Disconnected,
             audio_input,
             audio_output,
             message_buffer: Vec::new(),
@@ -338,16 +338,16 @@ impl State {
         self.phase_watcher.1.clone()
     }
     pub(crate) fn server(&self) -> Option<&ConnectedServer> {
-        self.server.as_ref()
+        match &self.server {
+            Server::Connected(server) => Some(server),
+            _ => None,
+        }
     }
     pub(crate) fn server_mut(&mut self) -> Option<&mut ConnectedServer> {
-        self.server.as_mut()
-    }
-    pub(crate) fn username(&self) -> Option<&str> {
-        self.server.as_ref().map(|e| e.username()).flatten()
-    }
-    pub(crate) fn password(&self) -> Option<&str> {
-        self.server.as_ref().map(|e| e.password()).flatten()
+        match &mut self.server {
+            Server::Connected(server) => Some(server),
+            _ => None,
+        }
     }
     fn get_users_channel(&self, user_id: u32) -> u32 {
         self.server()
@@ -392,7 +392,7 @@ pub(crate) fn handle_command(
             };
 
             let mut msg = msgs::UserState::new();
-            msg.set_session(state.server.as_ref().unwrap().session_id().unwrap());
+            msg.set_session(state.server().unwrap().session_id().unwrap());
             msg.set_channel_id(id);
             packet_sender.send(msg.into()).unwrap();
             now!(Ok(None))
@@ -402,8 +402,8 @@ pub(crate) fn handle_command(
                 return now!(Err(Error::Disconnected));
             }
             let list = channel::into_channel(
-                state.server.as_ref().unwrap().channels(),
-                state.server.as_ref().unwrap().users(),
+                state.server().unwrap().channels(),
+                state.server().unwrap().users(),
             );
             now!(Ok(Some(CommandResponse::ChannelList { channels: list })))
         }
@@ -597,7 +597,7 @@ pub(crate) fn handle_command(
             *server.username_mut() = Some(username);
             *server.password_mut() = password;
             *server.host_mut() = Some(format!("{}:{}", host, port));
-            state.server = Some(server);
+            state.server = Server::Connected(server);
             state.phase_watcher.0.send(StatePhase::Connecting).unwrap();
 
             let socket_addr = match (host.as_ref(), port)
@@ -629,7 +629,7 @@ pub(crate) fn handle_command(
                                 } else {
                                     None
                                 },
-                                server_state: state.read().unwrap().server.as_ref().unwrap().into(),
+                                server_state: state.read().unwrap().server().unwrap().into(),
                             })
                         })))
                     } else {
@@ -646,7 +646,7 @@ pub(crate) fn handle_command(
                 return now!(Err(Error::Disconnected));
             }
 
-            state.server = None;
+            state.server = Server::Disconnected;
 
             state
                 .phase_watcher
@@ -683,9 +683,10 @@ pub(crate) fn handle_command(
             if !matches!(*state.phase_receiver().borrow(), StatePhase::Connected(_)) {
                 return now!(Err(Error::Disconnected));
             }
-            let state = state.server.as_ref().unwrap().into();
+            // Ok since we just checked if we're connected.
+            let server_state = state.server().unwrap().into();
             now!(Ok(Some(CommandResponse::Status {
-                server_state: state, //guaranteed not to panic because if we are connected, server is guaranteed to be Some
+                server_state,
             })))
         }
         Command::UserVolumeSet(string, volume) => {

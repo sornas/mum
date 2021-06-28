@@ -189,8 +189,8 @@ pub(crate) async fn handle(
         let (username, password) = {
             let state_lock = state.read().unwrap();
             (
-                state_lock.username().unwrap().to_string(),
-                state_lock.password().map(|x| x.to_string()),
+                state_lock.server().unwrap().username().unwrap().to_string(),
+                state_lock.server().unwrap().password().map(|x| x.to_string()),
             )
         };
         authenticate(&mut sink, username, password).await?;
