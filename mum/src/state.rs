@@ -331,24 +331,29 @@ impl State {
     pub(crate) fn audio_input(&self) -> &AudioInput {
         &self.audio_input
     }
+
     pub(crate) fn audio_output(&self) -> &AudioOutput {
         &self.audio_output
     }
+
     pub(crate) fn phase_receiver(&self) -> watch::Receiver<StatePhase> {
         self.phase_watcher.1.clone()
     }
+
     pub(crate) fn server(&self) -> Option<&ConnectedServer> {
         match &self.server {
             Server::Connected(server) => Some(server),
             _ => None,
         }
     }
+
     pub(crate) fn server_mut(&mut self) -> Option<&mut ConnectedServer> {
         match &mut self.server {
             Server::Connected(server) => Some(server),
             _ => None,
         }
     }
+
     fn get_users_channel(&self, user_id: u32) -> u32 {
         self.server()
             .unwrap()
