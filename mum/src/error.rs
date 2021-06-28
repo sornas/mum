@@ -3,10 +3,10 @@ use mumlib::error::ConfigError;
 use std::fmt;
 use tokio::sync::mpsc;
 
-pub(crate) type ServerSendError = mpsc::error::SendError<ControlPacket<Serverbound>>;
+pub type ServerSendError = mpsc::error::SendError<ControlPacket<Serverbound>>;
 
 #[derive(Debug)]
-pub(crate) enum TcpError {
+pub enum TcpError {
     NoConnectionInfoReceived,
     TlsConnectorBuilderError(native_tls::Error),
     TlsConnectError(native_tls::Error),
@@ -56,7 +56,7 @@ impl From<std::io::Error> for UdpError {
 }
 
 #[derive(Debug)]
-pub(crate) enum ClientError {
+pub enum ClientError {
     TcpError(TcpError),
 }
 
@@ -69,7 +69,7 @@ impl fmt::Display for ClientError {
 }
 
 #[derive(Debug)]
-pub(crate) enum AudioStream {
+pub enum AudioStream {
     Input,
     Output,
 }
@@ -84,7 +84,7 @@ impl fmt::Display for AudioStream {
 }
 
 #[derive(Debug)]
-pub(crate) enum AudioError {
+pub enum AudioError {
     NoDevice(AudioStream),
     NoConfigs(AudioStream, cpal::SupportedStreamConfigsError),
     NoSupportedConfig(AudioStream),
@@ -111,7 +111,7 @@ impl fmt::Display for AudioError {
 }
 
 #[derive(Debug)]
-pub(crate) enum StateError {
+pub enum StateError {
     AudioError(AudioError),
     ConfigError(ConfigError),
 }

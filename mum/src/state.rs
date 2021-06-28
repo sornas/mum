@@ -1,6 +1,6 @@
-pub(crate) mod channel;
-pub(crate) mod server;
-pub(crate) mod user;
+pub mod channel;
+pub mod server;
+pub mod user;
 
 use crate::audio::{AudioInput, AudioOutput, sound_effects::NotificationEvents};
 use crate::error::StateError;
@@ -80,7 +80,7 @@ pub(crate) enum StatePhase {
 }
 
 #[derive(Debug)]
-pub(crate) struct State {
+pub struct State {
     config: Config,
     server: Option<Server>,
     audio_input: AudioInput,
@@ -93,7 +93,7 @@ pub(crate) struct State {
 }
 
 impl State {
-    pub(crate) fn new() -> Result<Self, StateError> {
+    pub fn new() -> Result<Self, StateError> {
         let config = mumlib::config::read_cfg(&mumlib::config::default_cfg_path())?;
         let phase_watcher = watch::channel(StatePhase::Disconnected);
         let audio_input = AudioInput::new(

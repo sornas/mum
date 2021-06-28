@@ -9,7 +9,7 @@ use mumlib::command::{Command, CommandResponse};
 use std::sync::{Arc, RwLock};
 use tokio::sync::{mpsc, watch};
 
-pub(crate) async fn handle(
+pub async fn handle(
     state: State,
     command_receiver: mpsc::UnboundedReceiver<(
         Command,

@@ -1,7 +1,7 @@
 #[cfg(feature = "notifications")]
 use log::*;
 
-pub(crate) fn init() {
+pub fn init() {
     #[cfg(feature = "notifications")]
     if let Err(e) = libnotify::init("mumd") {
         warn!("Unable to initialize notifications: {}", e);
