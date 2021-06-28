@@ -7,7 +7,7 @@ use crate::error::StateError;
 use crate::network::tcp::{DisconnectedReason, TcpEvent, TcpEventData};
 use crate::network::{ConnectionInfo, VoiceStreamType};
 use crate::notifications;
-use crate::state::server::Server;
+use crate::state::server::ConnectedServer;
 use crate::state::user::UserDiff;
 
 use chrono::NaiveDateTime;
@@ -82,7 +82,7 @@ pub(crate) enum StatePhase {
 #[derive(Debug)]
 pub struct State {
     config: Config,
-    server: Option<Server>,
+    server: Option<ConnectedServer>,
     audio_input: AudioInput,
     audio_output: AudioOutput,
     message_buffer: Vec<(NaiveDateTime, String, u32)>,
@@ -337,10 +337,10 @@ impl State {
     pub(crate) fn phase_receiver(&self) -> watch::Receiver<StatePhase> {
         self.phase_watcher.1.clone()
     }
-    pub(crate) fn server(&self) -> Option<&Server> {
+    pub(crate) fn server(&self) -> Option<&ConnectedServer> {
         self.server.as_ref()
     }
-    pub(crate) fn server_mut(&mut self) -> Option<&mut Server> {
+    pub(crate) fn server_mut(&mut self) -> Option<&mut ConnectedServer> {
         self.server.as_mut()
     }
     pub(crate) fn username(&self) -> Option<&str> {
@@ -593,7 +593,7 @@ pub(crate) fn handle_command(
             if !matches!(*state.phase_receiver().borrow(), StatePhase::Disconnected) {
                 return now!(Err(Error::AlreadyConnected));
             }
-            let mut server = Server::new();
+            let mut server = ConnectedServer::new();
             *server.username_mut() = Some(username);
             *server.password_mut() = password;
             *server.host_mut() = Some(format!("{}:{}", host, port));

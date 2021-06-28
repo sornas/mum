@@ -9,7 +9,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(crate) struct Server {
+pub(crate) struct ConnectedServer {
     channels: HashMap<u32, Channel>,
     users: HashMap<u32, User>,
     pub(crate) welcome_text: Option<String>,
@@ -23,7 +23,7 @@ pub(crate) struct Server {
     host: Option<String>,
 }
 
-impl Server {
+impl ConnectedServer {
     pub(crate) fn new() -> Self {
         Self {
             channels: HashMap::new(),
@@ -82,7 +82,7 @@ impl Server {
     /// note that doctests currently aren't run in binary crates yet (see #50784)
     /// ```
     /// use crate::state::channel::Channel;
-    /// let mut server = Server::new();
+    /// let mut server = ConnectedServer::new();
     /// let channel = Channel {
     ///     name: "Foobar".to_owned(),
     ///     ..Default::default(),
@@ -181,8 +181,8 @@ impl Server {
     }
 }
 
-impl From<&Server> for mumlib::state::Server {
-    fn from(server: &Server) -> Self {
+impl From<&ConnectedServer> for mumlib::state::Server {
+    fn from(server: &ConnectedServer) -> Self {
         mumlib::state::Server {
             channels: into_channel(server.channels(), server.users()),
             welcome_text: server.welcome_text.clone(),
