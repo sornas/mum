@@ -13,10 +13,10 @@
 #![forbid(unsafe_code)]
 #![forbid(non_ascii_idents)]
 
-pub mod audio;
-pub mod client;
-pub mod command;
-pub mod error;
-pub mod network;
-pub mod notifications;
-pub mod state;
+pub(crate) mod audio;
+pub(crate) mod client;
+pub(crate) mod command;
+pub(crate) mod error;
+pub(crate) mod network;
+pub(crate) mod notifications;
+pub(crate) mod state;

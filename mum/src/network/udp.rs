@@ -24,12 +24,12 @@ use tokio_util::udp::UdpFramed;
 
 use super::{run_until, VoiceStreamType};
 
-pub type PingRequest = (u64, SocketAddr, Box<dyn FnOnce(Option<PongPacket>) + Send>);
+pub(crate) type PingRequest = (u64, SocketAddr, Box<dyn FnOnce(Option<PongPacket>) + Send>);
 
 type UdpSender = SplitSink<UdpFramed<ClientCryptState>, (VoicePacket<Serverbound>, SocketAddr)>;
 type UdpReceiver = SplitStream<UdpFramed<ClientCryptState>>;
 
-pub async fn handle(
+pub(crate) async fn handle(
     state: Arc<RwLock<State>>,
     mut connection_info_receiver: watch::Receiver<Option<ConnectionInfo>>,
     mut crypt_state_receiver: mpsc::Receiver<ClientCryptState>,
@@ -229,7 +229,7 @@ async fn send_voice(
     }
 }
 
-pub async fn handle_pings(mut ping_request_receiver: mpsc::UnboundedReceiver<PingRequest>) {
+pub(crate) async fn handle_pings(mut ping_request_receiver: mpsc::UnboundedReceiver<PingRequest>) {
     let udp_socket = UdpSocket::bind((Ipv6Addr::from(0u128), 0u16))
         .await
         .expect("Failed to bind UDP socket");

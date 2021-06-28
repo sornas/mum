@@ -1,7 +1,7 @@
 #[cfg(feature = "notifications")]
 use log::*;
 
-pub fn init() {
+pub(crate) fn init() {
     #[cfg(feature = "notifications")]
     if let Err(e) = libnotify::init("mumd") {
         warn!("Unable to initialize notifications: {}", e);
@@ -9,7 +9,7 @@ pub fn init() {
 }
 
 #[cfg(feature = "notifications")]
-pub fn send(msg: String) -> Option<bool> {
+pub(crate) fn send(msg: String) -> Option<bool> {
     match libnotify::Notification::new("mumd", Some(msg.as_str()), None).show() {
         Ok(_) => Some(true),
         Err(e) => {
@@ -20,6 +20,6 @@ pub fn send(msg: String) -> Option<bool> {
 }
 
 #[cfg(not(feature = "notifications"))]
-pub fn send(_: String) -> Option<bool> {
+pub(crate) fn send(_: String) -> Option<bool> {
     None
 }

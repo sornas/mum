@@ -41,7 +41,7 @@ struct AudioSpec {
 
 /// An event where a notification is shown and a sound effect is played.
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash, EnumIter)]
-pub enum NotificationEvents {
+pub(crate) enum NotificationEvents {
     ServerConnect,
     ServerDisconnect,
     UserConnected,
@@ -78,7 +78,7 @@ impl TryFrom<&str> for NotificationEvents {
 
 /// Loads files into an "event -> data"-map, with support for overriding
 /// specific events with another sound file.
-pub fn load_sound_effects(overrides: &[SoundEffect], num_channels: usize) -> HashMap<NotificationEvents, Vec<f32>> {
+pub(crate) fn load_sound_effects(overrides: &[SoundEffect], num_channels: usize) -> HashMap<NotificationEvents, Vec<f32>> {
     let overrides: HashMap<_, _> = overrides
         .iter()
         .filter_map(|sound_effect| {

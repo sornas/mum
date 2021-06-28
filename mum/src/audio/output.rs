@@ -21,7 +21,7 @@ type ClientStreamKey = (VoiceStreamType, u32);
 
 /// State for decoding audio received from another user.
 #[derive(Debug)]
-pub struct ClientAudioData {
+pub(crate) struct ClientAudioData {
     buf: Bounded<Vec<f32>>,
     output_channels: opus::Channels,
     // We need both since a client can hypothetically send both mono
@@ -32,7 +32,7 @@ pub struct ClientAudioData {
 }
 
 impl ClientAudioData {
-    pub fn new(sample_rate: u32, output_channels: opus::Channels) -> Self {
+    pub(crate) fn new(sample_rate: u32, output_channels: opus::Channels) -> Self {
         Self {
             mono_decoder: opus::Decoder::new(sample_rate, opus::Channels::Mono).unwrap(),
             stereo_decoder: opus::Decoder::new(sample_rate, opus::Channels::Stereo).unwrap(),
@@ -41,7 +41,7 @@ impl ClientAudioData {
         }
     }
 
-    pub fn store_packet(&mut self, bytes: Bytes) {
+    pub(crate) fn store_packet(&mut self, bytes: Bytes) {
         let packet_channels = opus::packet::get_nb_channels(&bytes).unwrap();
         let (decoder, channels) = match packet_channels {
             opus::Channels::Mono => (&mut self.mono_decoder, 1),
@@ -69,7 +69,7 @@ impl ClientAudioData {
 
 /// Collected state for client opus decoders and sound effects.
 #[derive(Debug)]
-pub struct ClientStream {
+pub(crate) struct ClientStream {
     buffer_clients: HashMap<ClientStreamKey, ClientAudioData>,
     buffer_effects: VecDeque<f32>,
     sample_rate: u32,
@@ -77,7 +77,7 @@ pub struct ClientStream {
 }
 
 impl ClientStream {
-    pub fn new(sample_rate: u32, channels: u16) -> Self {
+    pub(crate) fn new(sample_rate: u32, channels: u16) -> Self {
         let channels = match channels {
             1 => opus::Channels::Mono,
             2 => opus::Channels::Stereo,
@@ -98,7 +98,7 @@ impl ClientStream {
     }
 
     /// Decodes a voice packet.
-    pub fn decode_packet(&mut self, client: ClientStreamKey, payload: VoicePacketPayload) {
+    pub(crate) fn decode_packet(&mut self, client: ClientStreamKey, payload: VoicePacketPayload) {
         match payload {
             VoicePacketPayload::Opus(bytes, _eot) => {
                 self.get_client(client).store_packet(bytes);
@@ -110,7 +110,7 @@ impl ClientStream {
     }
 
     /// Extends the sound effect buffer queue with some received values.
-    pub fn add_sound_effect(&mut self, values: &[f32]) {
+    pub(crate) fn add_sound_effect(&mut self, values: &[f32]) {
         self.buffer_effects.extend(values.iter().copied());
     }
 }
@@ -120,7 +120,7 @@ impl ClientStream {
 /// Since we support [f32], [i16] and [u16] we need some way of adding two values
 /// without peaking above/below the edge values. This trait ensures that we can
 /// use all three primitive types as a generic parameter.
-pub trait SaturatingAdd {
+pub(crate) trait SaturatingAdd {
     /// Adds two values in some saturating way. See trait documentation.
     fn saturating_add(self, rhs: Self) -> Self;
 }
@@ -147,7 +147,7 @@ impl SaturatingAdd for u16 {
     }
 }
 
-pub trait AudioOutputDevice {
+pub(crate) trait AudioOutputDevice {
     fn play(&self) -> Result<(), AudioError>;
     fn pause(&self) -> Result<(), AudioError>;
     fn set_volume(&self, volume: f32);
@@ -156,7 +156,7 @@ pub trait AudioOutputDevice {
 }
 
 /// The default audio output device, as determined by [cpal].
-pub struct DefaultAudioOutputDevice {
+pub(crate) struct DefaultAudioOutputDevice {
     config: StreamConfig,
     stream: cpal::Stream,
     /// The client stream per user ID. A separate stream is kept for UDP and TCP.
@@ -169,7 +169,7 @@ pub struct DefaultAudioOutputDevice {
 
 impl DefaultAudioOutputDevice {
     /// Initializes the default audio output.
-    pub fn new(
+    pub(crate) fn new(
         output_volume: f32,
         user_volumes: Arc<Mutex<HashMap<u32, (f32, bool)>>>,
     ) -> Result<Self, AudioError> {
@@ -270,7 +270,7 @@ impl AudioOutputDevice for DefaultAudioOutputDevice {
 
 /// Returns a function that fills a buffer with audio from client streams
 /// modified according to some audio configuration.
-pub fn callback<T: Sample + AddAssign + SaturatingAdd + std::fmt::Display>(
+pub(crate) fn callback<T: Sample + AddAssign + SaturatingAdd + std::fmt::Display>(
     user_bufs: Arc<Mutex<ClientStream>>,
     output_volume_receiver: watch::Receiver<f32>,
     user_volumes: Arc<Mutex<HashMap<u32, (f32, bool)>>>,

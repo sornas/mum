@@ -2,10 +2,10 @@
 //!
 //! Audio is handled mostly as signals from [dasp_signal]. Input/output is handled by [cpal].
 
-pub mod input;
-pub mod output;
-pub mod sound_effects;
-pub mod transformers;
+pub(crate) mod input;
+pub(crate) mod output;
+pub(crate) mod sound_effects;
+pub(crate) mod transformers;
 
 use crate::error::AudioError;
 use crate::network::VoiceStreamType;
@@ -30,7 +30,7 @@ const SAMPLE_RATE: u32 = 48000;
 
 /// Input audio state. Input audio is picket up from an [AudioInputDevice] (e.g.
 /// a microphone) and sent over the network.
-pub struct AudioInput {
+pub(crate) struct AudioInput {
     device: DefaultAudioInputDevice,
 
     /// Outgoing voice packets that should be sent over the network.
@@ -39,7 +39,7 @@ pub struct AudioInput {
 }
 
 impl AudioInput {
-    pub fn new(
+    pub(crate) fn new(
         input_volume: f32,
         phase_watcher: watch::Receiver<StatePhase>,
     ) -> Result<Self, AudioError> {
@@ -67,13 +67,13 @@ impl AudioInput {
         Ok(res)
     }
 
-    pub fn receiver(
+    pub(crate) fn receiver(
         &self,
     ) -> Arc<tokio::sync::Mutex<Box<dyn Stream<Item = VoicePacket<Serverbound>> + Unpin>>> {
         Arc::clone(&self.channel_receiver)
     }
 
-    pub fn set_volume(&self, input_volume: f32) {
+    pub(crate) fn set_volume(&self, input_volume: f32) {
         self.device.set_volume(input_volume);
     }
 }
@@ -91,7 +91,7 @@ impl Debug for AudioInput {
 /// Audio output state. The audio is received from each client over the network,
 /// decoded, merged and finally played to an [AudioOutputDevice] (e.g. speaker,
 /// headphones, ...).
-pub struct AudioOutput {
+pub(crate) struct AudioOutput {
     device: DefaultAudioOutputDevice,
     /// The volume and mute-status of a user ID.
     user_volumes: Arc<Mutex<HashMap<u32, (f32, bool)>>>,
@@ -106,7 +106,7 @@ pub struct AudioOutput {
 }
 
 impl AudioOutput {
-    pub fn new(output_volume: f32) -> Result<Self, AudioError> {
+    pub(crate) fn new(output_volume: f32) -> Result<Self, AudioError> {
         let user_volumes = Arc::new(std::sync::Mutex::new(HashMap::new()));
 
         let default = DefaultAudioOutputDevice::new(output_volume, Arc::clone(&user_volumes))?;
@@ -126,12 +126,12 @@ impl AudioOutput {
 
     /// Sets the sound effects according to some overrides, using some default
     /// value if an event isn't overriden.
-    pub fn load_sound_effects(&mut self, overrides: &[SoundEffect]) {
+    pub(crate) fn load_sound_effects(&mut self, overrides: &[SoundEffect]) {
         self.sounds = sound_effects::load_sound_effects(overrides, self.device.num_channels());
     }
 
     /// Decodes a voice packet.
-    pub fn decode_packet_payload(
+    pub(crate) fn decode_packet_payload(
         &self,
         stream_type: VoiceStreamType,
         session_id: u32,
@@ -144,12 +144,12 @@ impl AudioOutput {
     }
 
     /// Sets the volume of the output device.
-    pub fn set_volume(&self, output_volume: f32) {
+    pub(crate) fn set_volume(&self, output_volume: f32) {
         self.device.set_volume(output_volume);
     }
 
     /// Sets the incoming volume of a user.
-    pub fn set_user_volume(&self, id: u32, volume: f32) {
+    pub(crate) fn set_user_volume(&self, id: u32, volume: f32) {
         match self.user_volumes.lock().unwrap().entry(id) {
             Entry::Occupied(mut entry) => {
                 entry.get_mut().0 = volume;
@@ -161,7 +161,7 @@ impl AudioOutput {
     }
 
     /// Mutes another user.
-    pub fn set_mute(&self, id: u32, mute: bool) {
+    pub(crate) fn set_mute(&self, id: u32, mute: bool) {
         match self.user_volumes.lock().unwrap().entry(id) {
             Entry::Occupied(mut entry) => {
                 entry.get_mut().1 = mute;
@@ -173,7 +173,7 @@ impl AudioOutput {
     }
 
     /// Queues a sound effect.
-    pub fn play_effect(&self, effect: NotificationEvents) {
+    pub(crate) fn play_effect(&self, effect: NotificationEvents) {
         let samples = self.sounds.get(&effect).unwrap();
         self.client_streams.lock().unwrap().add_sound_effect(samples);
     }

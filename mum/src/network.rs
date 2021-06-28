@@ -1,5 +1,5 @@
-pub mod tcp;
-pub mod udp;
+pub(crate) mod tcp;
+pub(crate) mod udp;
 
 use futures_util::FutureExt;
 use log::*;
@@ -12,14 +12,14 @@ use tokio::{
 use crate::state::StatePhase;
 
 #[derive(Clone, Debug)]
-pub struct ConnectionInfo {
+pub(crate) struct ConnectionInfo {
     socket_addr: SocketAddr,
     hostname: String,
     accept_invalid_cert: bool,
 }
 
 impl ConnectionInfo {
-    pub fn new(socket_addr: SocketAddr, hostname: String, accept_invalid_cert: bool) -> Self {
+    pub(crate) fn new(socket_addr: SocketAddr, hostname: String, accept_invalid_cert: bool) -> Self {
         Self {
             socket_addr,
             hostname,
@@ -29,7 +29,7 @@ impl ConnectionInfo {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub enum VoiceStreamType {
+pub(crate) enum VoiceStreamType {
     Tcp,
     Udp,
 }

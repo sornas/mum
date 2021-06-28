@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct Channel {
+pub(crate) struct Channel {
     description: Option<String>,
     links: Vec<u32>,
     max_users: u32,
@@ -15,7 +15,7 @@ pub struct Channel {
 }
 
 impl Channel {
-    pub fn new(mut msg: msgs::ChannelState) -> Self {
+    pub(crate) fn new(mut msg: msgs::ChannelState) -> Self {
         Self {
             description: if msg.has_description() {
                 Some(msg.take_description())
@@ -34,7 +34,7 @@ impl Channel {
         }
     }
 
-    pub fn parse_channel_state(&mut self, mut msg: msgs::ChannelState) {
+    pub(crate) fn parse_channel_state(&mut self, mut msg: msgs::ChannelState) {
         if msg.has_description() {
             self.description = Some(msg.take_description());
         }
@@ -53,11 +53,11 @@ impl Channel {
         }
     }
 
-    pub fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn path(&self, channels: &HashMap<u32, Channel>) -> String {
+    pub(crate) fn path(&self, channels: &HashMap<u32, Channel>) -> String {
         match &self.parent {
             Some(t) => format!("{}/{}", channels.get(t).unwrap().path(channels), self.name),
             None => self.name.clone(),
@@ -124,7 +124,7 @@ impl<'a> From<&ProtoTree<'a>> for mumlib::state::Channel {
     }
 }
 
-pub fn into_channel(
+pub(crate) fn into_channel(
     channels: &HashMap<u32, Channel>,
     users: &HashMap<u32, User>,
 ) -> mumlib::state::Channel {

@@ -1,6 +1,6 @@
-pub mod channel;
-pub mod server;
-pub mod user;
+pub(crate) mod channel;
+pub(crate) mod server;
+pub(crate) mod user;
 
 use crate::audio::{AudioInput, AudioOutput, sound_effects::NotificationEvents};
 use crate::error::StateError;
@@ -49,7 +49,7 @@ type TcpEventSubscriberCallback = Box<
 >;
 
 //TODO give me a better name
-pub enum ExecutionContext {
+pub(crate) enum ExecutionContext {
     TcpEventCallback(Vec<(TcpEvent, TcpEventCallback)>),
     TcpEventSubscriber(TcpEvent, TcpEventSubscriberCallback),
     Now(Box<dyn FnOnce() -> Responses>),
@@ -73,14 +73,14 @@ impl Debug for ExecutionContext {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum StatePhase {
+pub(crate) enum StatePhase {
     Disconnected,
     Connecting,
     Connected(VoiceStreamType),
 }
 
 #[derive(Debug)]
-pub struct State {
+pub(crate) struct State {
     config: Config,
     server: Option<Server>,
     audio_input: AudioInput,
@@ -93,7 +93,7 @@ pub struct State {
 }
 
 impl State {
-    pub fn new() -> Result<Self, StateError> {
+    pub(crate) fn new() -> Result<Self, StateError> {
         let config = mumlib::config::read_cfg(&mumlib::config::default_cfg_path())?;
         let phase_watcher = watch::channel(StatePhase::Disconnected);
         let audio_input = AudioInput::new(
@@ -116,7 +116,7 @@ impl State {
         Ok(state)
     }
 
-    pub fn parse_user_state(&mut self, msg: msgs::UserState) {
+    pub(crate) fn parse_user_state(&mut self, msg: msgs::UserState) {
         if !msg.has_session() {
             warn!("Can't parse user state without session");
             return;
@@ -254,7 +254,7 @@ impl State {
         }
     }
 
-    pub fn remove_client(&mut self, msg: msgs::UserRemove) {
+    pub(crate) fn remove_client(&mut self, msg: msgs::UserRemove) {
         if !msg.has_session() {
             warn!("Tried to remove user state without session");
             return;
@@ -291,7 +291,7 @@ impl State {
         info!("User {} disconnected", msg.get_session());
     }
 
-    pub fn reload_config(&mut self) {
+    pub(crate) fn reload_config(&mut self) {
         match mumlib::config::read_cfg(&mumlib::config::default_cfg_path()) {
             Ok(config) => {
                 self.config = config;
@@ -309,44 +309,44 @@ impl State {
         }
     }
 
-    pub fn register_message(&mut self, msg: (String, u32)) {
+    pub(crate) fn register_message(&mut self, msg: (String, u32)) {
         self.message_buffer.push((chrono::Local::now().naive_local(), msg.0, msg.1));
     }
 
-    pub fn broadcast_phase(&self, phase: StatePhase) {
+    pub(crate) fn broadcast_phase(&self, phase: StatePhase) {
         self.phase_watcher.0.send(phase).unwrap();
     }
 
-    pub fn initialized(&self) {
+    pub(crate) fn initialized(&self) {
         self.broadcast_phase(StatePhase::Connected(VoiceStreamType::Tcp));
         self.audio_output
             .play_effect(NotificationEvents::ServerConnect);
     }
 
     /// Store a new event
-    pub fn push_event(&mut self, kind: MumbleEventKind) {
+    pub(crate) fn push_event(&mut self, kind: MumbleEventKind) {
         self.events.push(MumbleEvent { timestamp: chrono::Local::now().naive_local(), kind });
     }
 
-    pub fn audio_input(&self) -> &AudioInput {
+    pub(crate) fn audio_input(&self) -> &AudioInput {
         &self.audio_input
     }
-    pub fn audio_output(&self) -> &AudioOutput {
+    pub(crate) fn audio_output(&self) -> &AudioOutput {
         &self.audio_output
     }
-    pub fn phase_receiver(&self) -> watch::Receiver<StatePhase> {
+    pub(crate) fn phase_receiver(&self) -> watch::Receiver<StatePhase> {
         self.phase_watcher.1.clone()
     }
-    pub fn server(&self) -> Option<&Server> {
+    pub(crate) fn server(&self) -> Option<&Server> {
         self.server.as_ref()
     }
-    pub fn server_mut(&mut self) -> Option<&mut Server> {
+    pub(crate) fn server_mut(&mut self) -> Option<&mut Server> {
         self.server.as_mut()
     }
-    pub fn username(&self) -> Option<&str> {
+    pub(crate) fn username(&self) -> Option<&str> {
         self.server.as_ref().map(|e| e.username()).flatten()
     }
-    pub fn password(&self) -> Option<&str> {
+    pub(crate) fn password(&self) -> Option<&str> {
         self.server.as_ref().map(|e| e.password()).flatten()
     }
     fn get_users_channel(&self, user_id: u32) -> u32 {
@@ -373,7 +373,7 @@ impl State {
     }
 }
 
-pub fn handle_command(
+pub(crate) fn handle_command(
     og_state: Arc<RwLock<State>>,
     command: Command,
     packet_sender: &mut mpsc::UnboundedSender<ControlPacket<Serverbound>>,

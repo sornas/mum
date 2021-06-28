@@ -2,7 +2,7 @@ use mumble_protocol::control::msgs;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct User {
+pub(crate) struct User {
     channel: u32,
     comment: Option<String>,
     hash: Option<String>,
@@ -18,7 +18,7 @@ pub struct User {
 }
 
 impl User {
-    pub fn new(mut msg: msgs::UserState) -> Self {
+    pub(crate) fn new(mut msg: msgs::UserState) -> Self {
         Self {
             channel: msg.get_channel_id(),
             comment: if msg.has_comment() {
@@ -42,7 +42,7 @@ impl User {
         }
     }
 
-    pub fn apply_user_diff(&mut self, diff: &UserDiff) {
+    pub(crate) fn apply_user_diff(&mut self, diff: &UserDiff) {
         if let Some(comment) = diff.comment.clone() {
             self.comment = Some(comment);
         }
@@ -78,27 +78,27 @@ impl User {
         }
     }
 
-    pub fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn channel(&self) -> u32 {
+    pub(crate) fn channel(&self) -> u32 {
         self.channel
     }
 
-    pub fn self_mute(&self) -> bool {
+    pub(crate) fn self_mute(&self) -> bool {
         self.self_mute
     }
 
-    pub fn self_deaf(&self) -> bool {
+    pub(crate) fn self_deaf(&self) -> bool {
         self.self_deaf
     }
 
-    pub fn suppressed(&self) -> bool {
+    pub(crate) fn suppressed(&self) -> bool {
         self.suppress
     }
 
-    pub fn set_suppressed(&mut self, value: bool) {
+    pub(crate) fn set_suppressed(&mut self, value: bool) {
         self.suppress = value;
     }
 }
@@ -121,24 +121,24 @@ impl From<&User> for mumlib::state::User {
 }
 
 #[derive(Debug, Default)]
-pub struct UserDiff {
-    pub comment: Option<String>,
-    pub hash: Option<String>,
-    pub name: Option<String>,
-    pub priority_speaker: Option<bool>,
-    pub recording: Option<bool>,
+pub(crate) struct UserDiff {
+    pub(crate) comment: Option<String>,
+    pub(crate) hash: Option<String>,
+    pub(crate) name: Option<String>,
+    pub(crate) priority_speaker: Option<bool>,
+    pub(crate) recording: Option<bool>,
 
-    pub suppress: Option<bool>,  // by me
-    pub self_mute: Option<bool>, // by self
-    pub self_deaf: Option<bool>, // by self
-    pub mute: Option<bool>,      // by admin
-    pub deaf: Option<bool>,      // by admin
+    pub(crate) suppress: Option<bool>,  // by me
+    pub(crate) self_mute: Option<bool>, // by self
+    pub(crate) self_deaf: Option<bool>, // by self
+    pub(crate) mute: Option<bool>,      // by admin
+    pub(crate) deaf: Option<bool>,      // by admin
 
-    pub channel_id: Option<u32>,
+    pub(crate) channel_id: Option<u32>,
 }
 
 impl UserDiff {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         UserDiff::default()
     }
 }

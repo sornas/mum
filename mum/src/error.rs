@@ -3,10 +3,10 @@ use mumlib::error::ConfigError;
 use std::fmt;
 use tokio::sync::mpsc;
 
-pub type ServerSendError = mpsc::error::SendError<ControlPacket<Serverbound>>;
+pub(crate) type ServerSendError = mpsc::error::SendError<ControlPacket<Serverbound>>;
 
 #[derive(Debug)]
-pub enum TcpError {
+pub(crate) enum TcpError {
     NoConnectionInfoReceived,
     TlsConnectorBuilderError(native_tls::Error),
     TlsConnectError(native_tls::Error),
@@ -42,7 +42,7 @@ impl From<ServerSendError> for TcpError {
 }
 
 #[derive(Debug)]
-pub enum UdpError {
+pub(crate) enum UdpError {
     NoConnectionInfoReceived,
     DisconnectBeforeCryptSetup,
 
@@ -56,7 +56,7 @@ impl From<std::io::Error> for UdpError {
 }
 
 #[derive(Debug)]
-pub enum ClientError {
+pub(crate) enum ClientError {
     TcpError(TcpError),
 }
 
@@ -69,7 +69,7 @@ impl fmt::Display for ClientError {
 }
 
 #[derive(Debug)]
-pub enum AudioStream {
+pub(crate) enum AudioStream {
     Input,
     Output,
 }
@@ -84,7 +84,7 @@ impl fmt::Display for AudioStream {
 }
 
 #[derive(Debug)]
-pub enum AudioError {
+pub(crate) enum AudioError {
     NoDevice(AudioStream),
     NoConfigs(AudioStream, cpal::SupportedStreamConfigsError),
     NoSupportedConfig(AudioStream),
@@ -111,7 +111,7 @@ impl fmt::Display for AudioError {
 }
 
 #[derive(Debug)]
-pub enum StateError {
+pub(crate) enum StateError {
     AudioError(AudioError),
     ConfigError(ConfigError),
 }

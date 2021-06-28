@@ -37,7 +37,7 @@ pub(crate) type TcpEventSubscriber = Box<dyn FnMut(TcpEventData<'_>) -> bool>; /
 
 /// Why the TCP was disconnected.
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
-pub enum DisconnectedReason {
+pub(crate) enum DisconnectedReason {
     InvalidTls,
     User,
     TcpError,
@@ -45,7 +45,7 @@ pub enum DisconnectedReason {
 
 /// Something a callback can register to. Data is sent via a respective [TcpEventData].
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
-pub enum TcpEvent {
+pub(crate) enum TcpEvent {
     Connected,    //fires when the client has connected to a server
     Disconnected(DisconnectedReason), //fires when the client has disconnected from a server
     TextMessage,  //fires when a text message comes in
@@ -59,7 +59,7 @@ pub enum TcpEvent {
 /// callback _registers_ to a [TcpEvent] but _takes_ a [TcpEventData] as
 /// parameter.
 #[derive(Clone, Debug)]
-pub enum TcpEventData<'a> {
+pub(crate) enum TcpEventData<'a> {
     Connected(Result<&'a msgs::ServerSync, mumlib::Error>),
     Disconnected(DisconnectedReason),
     TextMessage(&'a msgs::TextMessage),
@@ -76,14 +76,14 @@ impl From<&TcpEventData<'_>> for TcpEvent {
 }
 
 #[derive(Clone, Default)]
-pub struct TcpEventQueue {
+pub(crate) struct TcpEventQueue {
     callbacks: Arc<RwLock<HashMap<TcpEvent, Vec<TcpEventCallback>>>>,
     subscribers: Arc<RwLock<HashMap<TcpEvent, Vec<TcpEventSubscriber>>>>,
 }
 
 impl TcpEventQueue {
     /// Creates a new `TcpEventQueue`.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             callbacks: Arc::new(RwLock::new(HashMap::new())),
             subscribers: Arc::new(RwLock::new(HashMap::new())),
@@ -91,7 +91,7 @@ impl TcpEventQueue {
     }
 
     /// Registers a new callback to be triggered when an event is fired.
-    pub fn register_callback(&self, at: TcpEvent, callback: TcpEventCallback) {
+    pub(crate) fn register_callback(&self, at: TcpEvent, callback: TcpEventCallback) {
         self.callbacks
             .write()
             .unwrap()
@@ -101,7 +101,7 @@ impl TcpEventQueue {
     }
 
     /// Registers a new callback to be triggered when an event is fired.
-    pub fn register_subscriber(&self, at: TcpEvent, callback: TcpEventSubscriber) {
+    pub(crate) fn register_subscriber(&self, at: TcpEvent, callback: TcpEventSubscriber) {
         self.subscribers
             .write()
             .unwrap()
@@ -112,7 +112,7 @@ impl TcpEventQueue {
 
     /// Fires all callbacks related to a specific TCP event and removes them from the event queue.
     /// Also calls all event subscribers, but keeps them in the queue
-    pub fn resolve(&self, data: TcpEventData<'_>) {
+    pub(crate) fn resolve(&self, data: TcpEventData<'_>) {
         if let Some(vec) = self
             .callbacks
             .write()
@@ -147,7 +147,7 @@ impl Debug for TcpEventQueue {
     }
 }
 
-pub async fn handle(
+pub(crate) async fn handle(
     state: Arc<RwLock<State>>,
     mut connection_info_receiver: watch::Receiver<Option<ConnectionInfo>>,
     crypt_state_sender: mpsc::Sender<ClientCryptState>,

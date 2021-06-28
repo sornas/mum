@@ -9,10 +9,10 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct Server {
+pub(crate) struct Server {
     channels: HashMap<u32, Channel>,
     users: HashMap<u32, User>,
-    pub welcome_text: Option<String>,
+    pub(crate) welcome_text: Option<String>,
 
     username: Option<String>,
     password: Option<String>,
@@ -24,7 +24,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             channels: HashMap::new(),
             users: HashMap::new(),
@@ -38,13 +38,13 @@ impl Server {
         }
     }
 
-    pub fn parse_server_sync(&mut self, mut msg: msgs::ServerSync) {
+    pub(crate) fn parse_server_sync(&mut self, mut msg: msgs::ServerSync) {
         if msg.has_welcome_text() {
             self.welcome_text = Some(msg.take_welcome_text());
         }
     }
 
-    pub fn parse_channel_state(&mut self, msg: msgs::ChannelState) {
+    pub(crate) fn parse_channel_state(&mut self, msg: msgs::ChannelState) {
         if !msg.has_channel_id() {
             warn!("Can't parse channel state without channel id");
             return;
@@ -57,7 +57,7 @@ impl Server {
         }
     }
 
-    pub fn parse_channel_remove(&mut self, msg: msgs::ChannelRemove) {
+    pub(crate) fn parse_channel_remove(&mut self, msg: msgs::ChannelRemove) {
         if !msg.has_channel_id() {
             warn!("Can't parse channel remove without channel id");
             return;
@@ -72,7 +72,7 @@ impl Server {
         }
     }
 
-    pub fn channels(&self) -> &HashMap<u32, Channel> {
+    pub(crate) fn channels(&self) -> &HashMap<u32, Channel> {
         &self.channels
     }
 
@@ -90,7 +90,7 @@ impl Server {
     /// server.channels.insert(0, channel.clone);
     /// assert_eq!(server.channel_name("Foobar"), Ok((0, &channel)));
     /// ```
-    pub fn channel_name(
+    pub(crate) fn channel_name(
         &self,
         channel_name: &str,
     ) -> Result<(u32, &Channel), ChannelIdentifierError> {
@@ -122,61 +122,61 @@ impl Server {
     /// Returns the currenctly connected channel.
     ///
     /// Returns None if not connected.
-    pub fn current_channel(&self) -> Option<(u32, &Channel)> {
+    pub(crate) fn current_channel(&self) -> Option<(u32, &Channel)> {
         let channel_id = self.users().get(&self.session_id()?)?.channel();
         let channel = self.channels().get(&channel_id)?;
         Some((channel_id, channel))
     }
 
-    pub fn host_mut(&mut self) -> &mut Option<String> {
+    pub(crate) fn host_mut(&mut self) -> &mut Option<String> {
         &mut self.host
     }
 
-    pub fn session_id(&self) -> Option<u32> {
+    pub(crate) fn session_id(&self) -> Option<u32> {
         self.session_id
     }
 
-    pub fn session_id_mut(&mut self) -> &mut Option<u32> {
+    pub(crate) fn session_id_mut(&mut self) -> &mut Option<u32> {
         &mut self.session_id
     }
 
-    pub fn users(&self) -> &HashMap<u32, User> {
+    pub(crate) fn users(&self) -> &HashMap<u32, User> {
         &self.users
     }
 
-    pub fn users_mut(&mut self) -> &mut HashMap<u32, User> {
+    pub(crate) fn users_mut(&mut self) -> &mut HashMap<u32, User> {
         &mut self.users
     }
 
-    pub fn username(&self) -> Option<&str> {
+    pub(crate) fn username(&self) -> Option<&str> {
         self.username.as_deref()
     }
 
-    pub fn username_mut(&mut self) -> &mut Option<String> {
+    pub(crate) fn username_mut(&mut self) -> &mut Option<String> {
         &mut self.username
     }
 
-    pub fn password(&self) -> Option<&str> {
+    pub(crate) fn password(&self) -> Option<&str> {
         self.password.as_deref()
     }
 
-    pub fn password_mut(&mut self) -> &mut Option<String> {
+    pub(crate) fn password_mut(&mut self) -> &mut Option<String> {
         &mut self.password
     }
 
-    pub fn muted(&self) -> bool {
+    pub(crate) fn muted(&self) -> bool {
         self.muted
     }
 
-    pub fn deafened(&self) -> bool {
+    pub(crate) fn deafened(&self) -> bool {
         self.deafened
     }
 
-    pub fn set_muted(&mut self, value: bool) {
+    pub(crate) fn set_muted(&mut self, value: bool) {
         self.muted = value;
     }
 
-    pub fn set_deafened(&mut self, value: bool) {
+    pub(crate) fn set_deafened(&mut self, value: bool) {
         self.deafened = value;
     }
 }

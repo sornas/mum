@@ -7,7 +7,7 @@ use mumlib::command::{Command, CommandResponse};
 use std::{rc::Rc, sync::{Arc, RwLock, atomic::{AtomicBool, AtomicU64, Ordering}}};
 use tokio::sync::{mpsc, watch};
 
-pub async fn handle(
+pub(crate) async fn handle(
     state: Arc<RwLock<State>>,
     mut command_receiver: mpsc::UnboundedReceiver<(
         Command,

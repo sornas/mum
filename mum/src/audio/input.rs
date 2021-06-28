@@ -11,7 +11,7 @@ use crate::error::{AudioError, AudioStream};
 use crate::state::StatePhase;
 
 /// Generates a callback that receives [Sample]s and sends them as floats to a [futures_channel::mpsc::Sender].
-pub fn callback<T: Sample>(
+pub(crate) fn callback<T: Sample>(
     mut input_sender: futures_channel::mpsc::Sender<Vec<u8>>,
     mut transformers: Vec<Box<dyn Transformer + Send + 'static>>,
     mut opus_encoder: opus::Encoder,
@@ -49,7 +49,7 @@ pub fn callback<T: Sample>(
 /// Something that can listen to audio and send it somewhere.
 ///
 /// One sample is assumed to be an encoded opus frame. See [opus::Encoder].
-pub trait AudioInputDevice {
+pub(crate) trait AudioInputDevice {
     /// Starts the device.
     fn play(&self) -> Result<(), AudioError>;
     /// Stops the device.
@@ -62,7 +62,7 @@ pub trait AudioInputDevice {
     fn num_channels(&self) -> usize;
 }
 
-pub struct DefaultAudioInputDevice {
+pub(crate) struct DefaultAudioInputDevice {
     stream: cpal::Stream,
     sample_receiver: Option<futures_channel::mpsc::Receiver<Vec<u8>>>,
     volume_sender: watch::Sender<f32>,
@@ -71,7 +71,7 @@ pub struct DefaultAudioInputDevice {
 
 impl DefaultAudioInputDevice {
     /// Initializes the default audio input.
-    pub fn new(
+    pub(crate) fn new(
         input_volume: f32,
         phase_watcher: watch::Receiver<StatePhase>,
         frame_size: u32, // blocks of 2.5 ms
