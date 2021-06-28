@@ -8,6 +8,16 @@ use serde::{Deserialize, Serialize};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) enum Server {
+    Connected(ConnectedServer),
+    Connecting(ConnectingServer),
+    Disconnected,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct ConnectingServer {}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct ConnectedServer {
     channels: HashMap<u32, Channel>,
